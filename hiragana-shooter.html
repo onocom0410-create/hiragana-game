@@ -134,14 +134,15 @@
 
   <div class="hud">
     <button class="iconBtn" id="homeBtn">⬅</button>
+    <button class="iconBtn" id="bgmBtn">🎵</button>
     <span id="hearts">❤️❤️❤️</span>
     <span class="xp" id="xp">⭐ 0</span>
     <span class="timer" id="timer">⏱ 3:00</span>
-    <button class="iconBtn" id="collBtn">🎒</button>
   </div>
   <div class="hud hud2">
     <span id="stageLbl">ステージ 1</span>
     <div class="gems" id="gemHud"></div>
+    <button class="iconBtn" id="collBtn">🎒</button>
   </div>
 
   <div id="field">
@@ -307,6 +308,9 @@ function speak(text, rate){
   try{
     const u = new SpeechSynthesisUtterance(text);
     u.lang="ja-JP"; u.rate = rate || .9;
+    u.onstart = ()=>setBgmDuck(true);
+    u.onend = ()=>setBgmDuck(false);
+    u.onerror = ()=>setBgmDuck(false);
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }catch(e){}
 }
@@ -335,6 +339,89 @@ function beep(freq,dur,type,vol,delay){
 function sfxCorrect(){ beep(880,.12,"sine",.25); beep(1318.5,.18,"sine",.22,.1); }
 function sfxMiss(){ beep(220,.18,"sawtooth",.2); beep(160,.24,"sawtooth",.18,.08); }
 function sfxTimeUp(){ beep(523.25,.16,"square",.22,0); beep(392,.16,"square",.22,.16); beep(261.63,.34,"square",.24,.32); }
+
+/* ====== BGM(8bit・ロックマンX風スーパーデフォルメ, オリジナル曲) ====== */
+const BGM_BPM = 150;
+const STEP_SEC = 60/BGM_BPM/4; // 16分音符
+const BGM_STEPS = 32;
+const mtof = m => m ? 440*Math.pow(2,(m-69)/12) : 0;
+// A(69) B(71) C(72) D(74) E(76) F(65) G(67) G#(68) …MIDIノート番号、0=きゅうふ
+const BGM_MELODY = [69,0,72,0, 71,0,69,0, 67,0,69,0, 64,0,67,0,
+                     69,0,72,0, 74,0,72,0, 71,0,69,0, 68,0,69,0];
+const BGM_BASS   = [57,57,69,57, 57,57,69,57, 55,55,67,55, 55,55,67,55,
+                     57,57,69,57, 57,57,69,57, 55,55,67,55, 55,55,67,55];
+const BGM_KICK   = [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0];
+const BGM_HAT    = [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0, 1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0];
+const BGM_SNARE  = [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0, 0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0];
+
+let bgmOn=true, bgmStep=0, bgmNextTime=0, bgmTimer=null, bgmMasterGain=null;
+
+function getBgmGain(){
+  if(!bgmMasterGain){
+    bgmMasterGain = getCtx().createGain();
+    bgmMasterGain.gain.value = 1;
+    bgmMasterGain.connect(getCtx().destination);
+  }
+  return bgmMasterGain;
+}
+function setBgmDuck(active){
+  try{
+    const g = getBgmGain(), ctx = getCtx(), now = ctx.currentTime;
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.linearRampToValueAtTime(active ? .22 : 1, now + .15);
+  }catch(e){}
+}
+function bgmTone(freq,t,dur,type,peak,attack){
+  if(!freq) return;
+  const ctx=getCtx();
+  const osc=ctx.createOscillator(), gain=ctx.createGain();
+  osc.type=type; osc.frequency.setValueAtTime(freq,t);
+  gain.gain.setValueAtTime(0,t);
+  gain.gain.linearRampToValueAtTime(peak,t+attack);
+  gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  osc.connect(gain).connect(getBgmGain());
+  osc.start(t); osc.stop(t+dur+.02);
+}
+function bgmNoise(t,dur,filterType,filterFreq,peak){
+  const ctx=getCtx();
+  const buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+  const noise=ctx.createBufferSource(); noise.buffer=buf;
+  const filt=ctx.createBiquadFilter(); filt.type=filterType; filt.frequency.value=filterFreq;
+  const gain=ctx.createGain();
+  gain.gain.setValueAtTime(peak,t);
+  gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  noise.connect(filt).connect(gain).connect(getBgmGain());
+  noise.start(t); noise.stop(t+dur+.02);
+}
+function bgmSchedule(){
+  const ctx=getCtx();
+  while(bgmNextTime < ctx.currentTime + .15){
+    const i = bgmStep % BGM_STEPS;
+    if(bgmOn){
+      bgmTone(mtof(BGM_MELODY[i]), bgmNextTime, STEP_SEC*1.8, "square", .1, .005);
+      bgmTone(mtof(BGM_BASS[i]),   bgmNextTime, STEP_SEC*.9,  "triangle", .16, .003);
+      if(BGM_KICK[i])  bgmTone(90, bgmNextTime, .13, "sine", .35, .002);
+      if(BGM_HAT[i])   bgmNoise(bgmNextTime, .04, "highpass", 7000, .05);
+      if(BGM_SNARE[i]) bgmNoise(bgmNextTime, .09, "bandpass", 1800, .16);
+    }
+    bgmNextTime += STEP_SEC;
+    bgmStep++;
+  }
+}
+function startBgm(){
+  try{ getCtx().resume(); }catch(e){}
+  if(bgmTimer) return;
+  bgmStep=0; bgmNextTime=getCtx().currentTime+.05;
+  bgmSchedule();
+  bgmTimer=setInterval(bgmSchedule,50);
+}
+function toggleBgm(){
+  bgmOn=!bgmOn;
+  $("bgmBtn").textContent = bgmOn?"🎵":"🔇";
+}
 
 /* ====== HUD ====== */
 function updateHud(){
@@ -783,7 +870,7 @@ $("collClose").onclick=()=>$("collOv").classList.remove("show");
 /* ====== 進行 ====== */
 $("startBtn").onclick=()=>{
   if(!dataReady){ speak("まだ じゅんびちゅうだよ"); return; }
-  try{ getCtx().resume(); }catch(e){}
+  startBgm();
   $("startOv").classList.remove("show");
   G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
   updateHud(); updateTimerDisplay();
@@ -794,21 +881,22 @@ $("nextStageBtn").onclick=()=>{
   $("clearOv").classList.remove("show");
   G.stage++; G.gems={}; G.hearts=3;
   G.running=true; G.lastT=0;
-  updateHud(); spawnEnemy();
+  updateHud(); spawnEnemy(); startBgm();
   if(!G.raf) G.raf=requestAnimationFrame(loop);
 };
 $("retryBtn").onclick=()=>{
   $("overOv").classList.remove("show");
   G.hearts=3; G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
-  updateHud(); updateTimerDisplay(); spawnEnemy();
+  updateHud(); updateTimerDisplay(); spawnEnemy(); startBgm();
   if(!G.raf) G.raf=requestAnimationFrame(loop);
 };
 $("timeupRetryBtn").onclick=()=>{
   $("timeOv").classList.remove("show");
   G.hearts=3; G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
-  updateHud(); updateTimerDisplay(); spawnEnemy();
+  updateHud(); updateTimerDisplay(); spawnEnemy(); startBgm();
   if(!G.raf) G.raf=requestAnimationFrame(loop);
 };
+$("bgmBtn").onclick=toggleBgm;
 $("homeBtn").onclick=()=>{ location.href="index.html"; };
 $("overHomeBtn").onclick=()=>{ location.href="index.html"; };
 $("clearHomeBtn").onclick=()=>{ location.href="index.html"; };
