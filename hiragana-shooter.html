@@ -29,6 +29,10 @@
   .gems span.got{background:rgba(255,255,255,.9);}
   .iconBtn{border:none; background:rgba(255,255,255,.15); color:#fff; border-radius:12px;
     font-family:inherit; font-weight:900; font-size:13px; padding:7px 10px; cursor:pointer;}
+  .hud .timer{font-weight:900;}
+  .hud .timer.warn{color:var(--accent); animation:warnPulse .6s infinite;}
+  @keyframes warnPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .hud2{padding:0 12px 8px; font-size:12px;}
 
   /* ---- バトルフィールド ---- */
   #field{flex:1; position:relative; overflow:hidden; min-height:120px;}
@@ -129,11 +133,15 @@
 <div id="app">
 
   <div class="hud">
+    <button class="iconBtn" id="homeBtn">⬅</button>
     <span id="hearts">❤️❤️❤️</span>
     <span class="xp" id="xp">⭐ 0</span>
-    <div class="gems" id="gemHud"></div>
+    <span class="timer" id="timer">⏱ 3:00</span>
     <button class="iconBtn" id="collBtn">🎒</button>
+  </div>
+  <div class="hud hud2">
     <span id="stageLbl">ステージ 1</span>
+    <div class="gems" id="gemHud"></div>
   </div>
 
   <div id="field">
@@ -193,6 +201,7 @@
     <h2>ステージクリア!</h2>
     <p>💎を 6しゅるい あつめたね!すごい!</p>
     <button id="nextStageBtn">つぎの ステージへ ▶</button>
+    <button class="sub" id="clearHomeBtn">🏠 ホームへ</button>
   </div>
 
   <div class="overlay" id="overOv">
@@ -200,6 +209,15 @@
     <h2>やられちゃった…</h2>
     <p>でも あつめた アイテムは のこってるよ!</p>
     <button id="retryBtn">もういちど ▶</button>
+    <button class="sub" id="overHomeBtn">🏠 ホームへ</button>
+  </div>
+
+  <div class="overlay" id="timeOv">
+    <div class="huge">⏰</div>
+    <h2>タイムオーバー!</h2>
+    <p id="timeupSummary">よく がんばったね!</p>
+    <button id="timeupRetryBtn">もういちど ▶</button>
+    <button class="sub" id="timeupHomeBtn">🏠 ホームへ</button>
   </div>
 
   <div class="overlay" id="collOv">
@@ -276,7 +294,8 @@ const G = {
   enemy:null, // {el, y, word, blankIdx, hp, maxHp, emoji, filled}
   chosen:null, padState:"idle", // idle | tracing | ready
   strokeIdx:0, guidePts:[], matched:0, drawing:false, userPts:[],
-  demoTimer:null, clipSeq:0, raf:null, lastT:0
+  demoTimer:null, clipSeq:0, raf:null, lastT:0,
+  timeLimit:180000, timeLeft:180000, lastSec:null
 };
 
 const $ = id => document.getElementById(id);
@@ -293,6 +312,30 @@ function speak(text, rate){
 }
 const rand = a => a[Math.floor(Math.random()*a.length)];
 
+/* ====== こうかおん ====== */
+let audioCtx=null;
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq,dur,type,vol,delay){
+  try{
+    const ctx=getCtx();
+    if(ctx.state==="suspended") ctx.resume();
+    const t0=ctx.currentTime+(delay||0);
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type=type||"sine"; osc.frequency.setValueAtTime(freq,t0);
+    gain.gain.setValueAtTime(0,t0);
+    gain.gain.linearRampToValueAtTime(vol||.25,t0+.02);
+    gain.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0); osc.stop(t0+dur+.03);
+  }catch(e){}
+}
+function sfxCorrect(){ beep(880,.12,"sine",.25); beep(1318.5,.18,"sine",.22,.1); }
+function sfxMiss(){ beep(220,.18,"sawtooth",.2); beep(160,.24,"sawtooth",.18,.08); }
+function sfxTimeUp(){ beep(523.25,.16,"square",.22,0); beep(392,.16,"square",.22,.16); beep(261.63,.34,"square",.24,.32); }
+
 /* ====== HUD ====== */
 function updateHud(){
   $("hearts").textContent = "❤️".repeat(G.hearts) + (G.shieldsLeft?("🛡️".repeat(G.shieldsLeft)):"") || "💔";
@@ -305,6 +348,15 @@ function updateHud(){
     hud.appendChild(s);
   });
   $("gachaBtn").disabled = G.xp < GACHA_COST;
+}
+function updateTimerDisplay(){
+  const sec = Math.max(0, Math.ceil(G.timeLeft/1000));
+  if(sec===G.lastSec) return;
+  G.lastSec = sec;
+  const m = Math.floor(sec/60), s = sec%60;
+  const el = $("timer");
+  el.textContent = "⏱ "+m+":"+String(s).padStart(2,"0");
+  el.classList.toggle("warn", sec<=10);
 }
 
 /* ====== 敵 ====== */
@@ -576,6 +628,7 @@ function effectAt(rect, html, cls){
   setTimeout(()=>d.remove(),1100);
 }
 function hitEnemy(){
+  sfxCorrect();
   const E=G.enemy;
   const dmg = 1 + G.equips.pen;
   E.hp -= dmg;
@@ -605,6 +658,7 @@ function hitEnemy(){
   }
 }
 function missEnemy(){
+  sfxMiss();
   const E=G.enemy;
   effectAt(E.el.getBoundingClientRect(),"💨","boom");
   setPadMsg(`「${G.chosen}」じゃ ないみたい。もういちど えらぼう!`,"retry");
@@ -618,6 +672,16 @@ function loop(t){
   const dt = G.lastT ? (t-G.lastT) : 16;
   G.lastT = t;
   const overlayOpen = document.querySelector(".overlay.show");
+  if(!overlayOpen){
+    G.timeLeft -= dt;
+    if(G.timeLeft<=0){
+      G.timeLeft = 0;
+      updateTimerDisplay();
+      timeUp();
+      return;
+    }
+    updateTimerDisplay();
+  }
   if(G.enemy && !overlayOpen){
     const duration = Math.max(45000, 95000 * Math.pow(.9, G.stage-1)); // 降下時間
     G.enemy.y += dt/duration*100;
@@ -628,6 +692,13 @@ function loop(t){
     }
   }
   G.raf=requestAnimationFrame(loop);
+}
+function timeUp(){
+  G.running=false; G.raf=null;
+  sfxTimeUp();
+  $("timeupSummary").textContent = `よく がんばったね! ⭐${G.xp} ・ 💎${Object.keys(G.gems).length}/6`;
+  $("timeOv").classList.add("show");
+  speak("じかんぎれ!よく がんばったね!");
 }
 function baseHit(){
   const E=G.enemy;
@@ -712,9 +783,10 @@ $("collClose").onclick=()=>$("collOv").classList.remove("show");
 /* ====== 進行 ====== */
 $("startBtn").onclick=()=>{
   if(!dataReady){ speak("まだ じゅんびちゅうだよ"); return; }
+  try{ getCtx().resume(); }catch(e){}
   $("startOv").classList.remove("show");
-  G.running=true; G.lastT=0;
-  updateHud();
+  G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
+  updateHud(); updateTimerDisplay();
   spawnEnemy();
   if(!G.raf) G.raf=requestAnimationFrame(loop);
 };
@@ -727,10 +799,20 @@ $("nextStageBtn").onclick=()=>{
 };
 $("retryBtn").onclick=()=>{
   $("overOv").classList.remove("show");
-  G.hearts=3; G.running=true; G.lastT=0;
-  updateHud(); spawnEnemy();
+  G.hearts=3; G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
+  updateHud(); updateTimerDisplay(); spawnEnemy();
   if(!G.raf) G.raf=requestAnimationFrame(loop);
 };
+$("timeupRetryBtn").onclick=()=>{
+  $("timeOv").classList.remove("show");
+  G.hearts=3; G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
+  updateHud(); updateTimerDisplay(); spawnEnemy();
+  if(!G.raf) G.raf=requestAnimationFrame(loop);
+};
+$("homeBtn").onclick=()=>{ location.href="index.html"; };
+$("overHomeBtn").onclick=()=>{ location.href="index.html"; };
+$("clearHomeBtn").onclick=()=>{ location.href="index.html"; };
+$("timeupHomeBtn").onclick=()=>{ location.href="index.html"; };
 </script>
 </body>
 </html>
