@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>きいて かこう</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDF4EA; --card:#FFFFFF; --ink:#33334D;
+    --guide:#D2E0D5; --accent:#FF7B54; --star:#FFC24B; --ok:#5FAE7C;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","BIZ UDGothic",sans-serif;
+    background:var(--paper); color:var(--ink);
+    display:flex; flex-direction:column; align-items:center;
+    overscroll-behavior:none; touch-action:manipulation;
+  }
+  .screen{width:100%; max-width:480px; padding:16px; display:none; flex-direction:column; align-items:center;}
+  .screen.active{display:flex;}
+
+  /* ---- 単語セット画面 ---- */
+  h1{font-weight:900; font-size:26px; letter-spacing:.12em; margin:24px 0 2px;}
+  .subtitle{font-size:13px; color:#7A8C7E; text-align:center; line-height:1.9; margin-bottom:16px;}
+  .loadState{font-size:12px; font-weight:700; margin-bottom:10px; color:#7A8C7E;}
+  .loadState.err{color:#C0392B;}
+  .micBtn{
+    border:none; border-radius:50%; width:110px; height:110px;
+    background:var(--accent); color:#fff; font-size:44px; cursor:pointer;
+    box-shadow:0 5px 0 #D65F3C; margin-bottom:8px;
+  }
+  .micBtn:active{transform:translateY(3px); box-shadow:0 2px 0 #D65F3C;}
+  .micBtn.listening{background:#E4483F; animation:micPulse 1.1s infinite;}
+  @keyframes micPulse{0%,100%{box-shadow:0 5px 0 #B03530,0 0 0 0 rgba(228,72,63,.45);}50%{box-shadow:0 5px 0 #B03530,0 0 0 16px rgba(228,72,63,0);}}
+  .micLabel{font-size:14px; font-weight:700; color:#7A8C7E; margin-bottom:14px; text-align:center; line-height:1.7;}
+
+  .wordPreview{display:flex; gap:8px; min-height:56px; margin-bottom:6px; flex-wrap:wrap; justify-content:center;}
+  .wordPreview .slot{
+    width:52px; height:52px; border-radius:12px; background:var(--card);
+    border:3px solid var(--ok); display:flex; align-items:center; justify-content:center;
+    font-size:30px; font-weight:900; animation:pop .3s;
+  }
+  .setupMsg{min-height:38px; font-size:13px; font-weight:700; color:var(--accent); text-align:center; line-height:1.6;}
+
+  .typeRow{display:flex; gap:8px; width:100%; margin:6px 0 12px;}
+  .typeRow input{
+    flex:1; border:3px solid #DDE9DF; border-radius:14px; padding:10px 12px;
+    font-family:inherit; font-size:18px; font-weight:700; outline:none; min-width:0;
+  }
+  .typeRow input:focus{border-color:var(--accent);}
+  .typeRow button{
+    border:none; border-radius:14px; background:var(--card); color:var(--ink);
+    font-family:inherit; font-size:14px; font-weight:900; padding:0 14px;
+    box-shadow:0 3px 0 #CBDACD; cursor:pointer; white-space:nowrap;
+  }
+  .goBtn{
+    border:none; border-radius:22px; background:var(--ok); color:#fff;
+    font-family:inherit; font-size:21px; font-weight:900; padding:16px 48px;
+    box-shadow:0 5px 0 #47936A; cursor:pointer;
+  }
+  .goBtn:active{transform:translateY(3px);}
+  .goBtn[disabled]{opacity:.4; pointer-events:none;}
+  .credit{font-size:11px; color:#A5B5A9; margin-top:18px; text-align:center; line-height:1.8;}
+  .credit a{color:#8AA08E;}
+
+  /* ---- れんしゅう画面 ---- */
+  .topbar{width:100%; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .backBtn{border:none; background:var(--card); border-radius:14px; padding:9px 14px;
+    font-family:inherit; font-weight:700; font-size:14px; color:var(--ink);
+    box-shadow:0 3px 0 #CBDACD; cursor:pointer;}
+  .starCount{font-size:16px; font-weight:900; color:#B98A1E;}
+  .speakBtn{
+    border:none; border-radius:16px; background:#FFF3C9; color:#8A6D1B;
+    font-family:inherit; font-size:15px; font-weight:900; padding:10px 14px;
+    box-shadow:0 3px 0 #E3D3A0; cursor:pointer;
+  }
+  .speakBtn:active{transform:translateY(2px);}
+
+  .slots{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; justify-content:center;}
+  .slot{
+    width:52px; height:52px; border-radius:12px; background:var(--card);
+    border:3px solid #DDE9DF; display:flex; align-items:center; justify-content:center;
+    font-size:30px; font-weight:900;
+  }
+  .slot .ghost{color:#D9E4DB;}
+  .slot.now{border-color:var(--accent); animation:slotPulse 1.2s infinite;}
+  .slot.done{border-color:var(--ok); animation:pop .35s;}
+  @keyframes slotPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,123,84,.4);}50%{box-shadow:0 0 0 7px rgba(255,123,84,0);}}
+
+  .board{
+    width:100%; aspect-ratio:1; background:var(--card); border-radius:24px;
+    box-shadow:0 4px 0 #CBDACD; position:relative; overflow:hidden; touch-action:none;
+  }
+  .board svg{width:100%; height:100%; display:block;}
+  .strokeDots{position:absolute; top:10px; right:12px; display:flex; gap:5px;}
+  .strokeDots span{
+    width:22px; height:22px; border-radius:50%; background:#DDE9DF; color:#8AA08E;
+    font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;
+  }
+  .strokeDots span.done{background:var(--ok); color:#fff;}
+  .strokeDots span.now{background:var(--accent); color:#fff;}
+
+  .msg{min-height:26px; margin-top:8px; font-size:16px; font-weight:700; text-align:center;}
+  .msg.good{color:var(--ok);} .msg.retry{color:var(--accent);}
+
+  .controls{display:flex; gap:12px; margin-top:8px; width:100%;}
+  .ctrlBtn{
+    flex:1; border:none; border-radius:18px; padding:13px 0;
+    font-family:inherit; font-size:16px; font-weight:900; cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,.12);
+  }
+  .ctrlBtn:active{transform:translateY(2px);}
+  .ctrlBtn.demo{background:#FFF3C9; color:#8A6D1B;}
+  .ctrlBtn.trace{background:var(--accent); color:#fff;}
+  .ctrlBtn[disabled]{opacity:.45; pointer-events:none;}
+
+  .celebrate{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    flex-direction:column; background:rgba(255,255,255,.93); border-radius:24px; z-index:5;
+  }
+  .celebrate.show{display:flex;}
+  .celebrate .stars{font-size:52px; animation:pop .5s;}
+  .celebrate .word{font-size:42px; font-weight:900; letter-spacing:.2em; margin:6px 0;}
+  .celebrate p{font-size:19px; font-weight:900; margin:0 0 16px;}
+  .celebrate .row{display:flex; gap:12px;}
+  .nextBtn{
+    border:none; border-radius:18px; font-family:inherit;
+    font-size:16px; font-weight:900; padding:13px 22px; cursor:pointer;
+  }
+  .nextBtn.again{background:#FFF3C9; color:#8A6D1B; box-shadow:0 4px 0 #E3D3A0;}
+  .nextBtn.new{background:var(--ok); color:#fff; box-shadow:0 4px 0 #47936A;}
+  .nextBtn:active{transform:translateY(2px);}
+
+  @keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.25);}100%{transform:scale(1);}}
+  .shake{animation:shake .35s;}
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01s !important; transition-duration:.01s !important;}
+  }
+</style>
+</head>
+<body>
+
+<!-- 単語セット(おうちのひと) -->
+<section id="setup" class="screen active">
+  <h1>きいて かこう</h1>
+  <p class="subtitle">おうちのひとが ことばを きめてね。<br>マイクにむかって はなすか、したに かいてね。</p>
+  <div class="loadState" id="loadState">もじデータを よみこみちゅう…</div>
+
+  <button class="micBtn" id="micBtn">🎤</button>
+  <div class="micLabel" id="micLabel">おして はなす</div>
+
+  <div class="wordPreview" id="wordPreview"></div>
+  <div class="setupMsg" id="setupMsg"></div>
+
+  <div class="typeRow">
+    <input id="typeInput" type="text" placeholder="ひらがなで にゅうりょく(れい:りんご)" autocomplete="off">
+    <button id="typeBtn">セット</button>
+  </div>
+
+  <button class="goBtn" id="goBtn" disabled>▶ はじめる</button>
+
+  <p class="credit">ひらがなは ぜんぶ かけるよ(が・ぱ・小さい っゃゅょ も OK)<br>
+  文字データ: <a href="https://github.com/parsimonhi/animCJK" target="_blank">animCJK</a> / kana-svg-data (LGPL)</p>
+</section>
+
+<!-- れんしゅう(こども) -->
+<section id="practice" class="screen">
+  <div class="topbar">
+    <button class="backBtn" id="backBtn">← おわる</button>
+    <button class="speakBtn" id="speakBtn">🔊 もういちど きく</button>
+    <div class="starCount" id="starCount">⭐ 0</div>
+  </div>
+
+  <div class="slots" id="slots"></div>
+
+  <div class="board" id="board">
+    <svg id="svg" viewBox="0 0 1024 1024">
+      <defs id="defs"></defs>
+      <rect x="20" y="20" width="984" height="984" rx="100" fill="none" stroke="#E4EEE6" stroke-width="16"/>
+      <line x1="512" y1="40" x2="512" y2="984" stroke="#E4EEE6" stroke-width="12" stroke-dasharray="40 40"/>
+      <line x1="40" y1="512" x2="984" y2="512" stroke="#E4EEE6" stroke-width="12" stroke-dasharray="40 40"/>
+      <g id="glyphLayer"></g>
+      <g id="doneLayer"></g>
+      <g id="demoLayer"></g>
+      <g id="hintLayer"></g>
+      <path id="trail" d="" fill="none" stroke="#FF7B54" stroke-opacity=".55"
+            stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="strokeDots" id="strokeDots"></div>
+    <div class="celebrate" id="celebrate">
+      <div class="stars">⭐⭐⭐</div>
+      <div class="word" id="celebWord"></div>
+      <p>かけたね!</p>
+      <div class="row">
+        <button class="nextBtn again" id="againBtn">もういちど かく</button>
+        <button class="nextBtn new" id="newWordBtn">あたらしい ことば</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="controls">
+    <button class="ctrlBtn demo" id="demoBtn">▶ おてほん</button>
+    <button class="ctrlBtn trace" id="traceBtn">✎ なぞる</button>
+  </div>
+</section>
+
+<script>
+/* =========================================================
+   文字データ:kana-svg-data (animCJK由来, LGPL) を実行時に取得
+   - strokes: 画ごとの輪郭パス(結び付きの画は "3a","3b" に分割)
+   - medians: 画の中心線(座標列)→ お手本アニメ・なぞり判定に使用
+   viewBox: 0 0 1024 1024
+========================================================= */
+const DATA_URL = "https://cdn.jsdelivr.net/npm/kana-svg-data/dist/allHiragana.json";
+const INK = "#33334D", GUIDE = "#D2E0D5", ACCENT = "#FF7B54";
+
+const CHARS = {};   // char → [{outlines:[d,...], median:[[x,y],...]}]  画順
+let dataReady = false;
+
+async function loadData(){
+  const el = document.getElementById("loadState");
+  try{
+    const res = await fetch(DATA_URL);
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const all = await res.json();
+    for(const item of all){
+      const ch = String.fromCharCode(item.charCode);
+      const groups = new Map(); // 画番号 → {outlines, median}
+      for(const s of item.strokes){
+        const n = parseInt(s.id);
+        if(!groups.has(n)) groups.set(n, {outlines:[], median:null});
+        groups.get(n).outlines.push(s.value);
+      }
+      for(const m of item.medians){
+        const n = parseInt(m.id);
+        const isPrimary = m.id === String(n) || m.id === n + "a";
+        if(isPrimary && groups.has(n)) groups.get(n).median = m.value;
+      }
+      const strokes = [...groups.keys()].sort((a,b)=>a-b)
+        .map(n => groups.get(n))
+        .filter(g => g.median && g.median.length > 1);
+      if(strokes.length) CHARS[ch] = strokes;
+    }
+    dataReady = true;
+    el.textContent = `もじデータ OK(${Object.keys(CHARS).length}もじ)`;
+    refreshGo();
+  }catch(e){
+    el.className = "loadState err";
+    el.textContent = "もじデータを よみこめなかったよ。インターネットに つないで、ブラウザで ひらいてね。";
+  }
+}
+loadData();
+
+const $ = id => document.getElementById(id);
+const svg = $("svg");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const SVGNS = "http://www.w3.org/2000/svg";
+
+const state = {
+  word: "", charPos: 0, stars: 0,
+  strokeIdx: 0, mode: "demo",
+  guidePts: [], matched: 0, drawing: false, userPts: [],
+  demoTimer: null, clipSeq: 0
+};
+
+/* ---------- 音声よみあげ ---------- */
+function speak(text, rate){
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ja-JP"; u.rate = rate || .85;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* =========================================================
+   ① 単語セット:音声認識 or 手入力
+========================================================= */
+const kataToHira = s => s.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const normalize = s => kataToHira((s||"").trim()).replace(/[\s。、,.!?!?・「」]/g, "");
+const isSupported = s => s.length > 0 && [...s].every(c => CHARS[c]);
+
+function refreshGo(){ $("goBtn").disabled = !(dataReady && state.word); }
+
+function showPreview(word){
+  const box = $("wordPreview"); box.innerHTML = "";
+  [...word].forEach(ch => {
+    const d = document.createElement("div");
+    d.className = "slot"; d.textContent = ch;
+    box.appendChild(d);
+  });
+}
+function setWord(word){
+  state.word = word;
+  showPreview(word);
+  refreshGo();
+  $("setupMsg").textContent = "";
+  speak(word);
+}
+function rejectWord(heard){
+  state.word = "";
+  $("wordPreview").innerHTML = "";
+  refreshGo();
+  $("setupMsg").textContent =
+    (heard ? `「${heard}」と きこえたよ。` : "") +
+    (dataReady ? "ひらがなに できない もじが あるみたい。ひらがなの ことばに してね。"
+               : "もじデータの よみこみを まってね。");
+}
+
+/* --- マイク(Web Speech API) --- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, listening = false;
+
+if(!SR){
+  $("micBtn").style.display = "none";
+  $("micLabel").textContent = "このブラウザは マイクが つかえないよ(したに かいてね)";
+}else if(window.self !== window.top){
+  $("micBtn").style.opacity = ".4";
+  $("micLabel").textContent = "プレビューでは マイクが つかえないよ。ファイルを ブラウザで ひらいてね(いまは したに かいてね)";
+}
+
+$("micBtn").onclick = () => {
+  if(!SR) return;
+  if(listening){ recog && recog.stop(); return; }
+  recog = new SR();
+  recog.lang = "ja-JP";
+  recog.interimResults = false;
+  recog.maxAlternatives = 8;
+  listening = true;
+  $("micBtn").classList.add("listening");
+  $("micLabel").textContent = "きいています… ことばを はなしてね";
+
+  recog.onresult = e => {
+    const alts = [...e.results[0]].map(r => r.transcript);
+    let picked = null, firstHeard = normalize(alts[0]) || alts[0];
+    for(const a of alts){
+      const n = normalize(a);
+      if(isSupported(n)){ picked = n; break; }
+    }
+    if(picked) setWord(picked);
+    else rejectWord(firstHeard);
+  };
+  recog.onerror = e => {
+    $("setupMsg").textContent =
+      e.error === "not-allowed" || e.error === "service-not-allowed"
+        ? (window.self !== window.top
+            ? "プレビューの なかでは マイクが つかえないよ。ファイルを ほぞんして、ChromeやSafariで ひらいてね。"
+            : "マイクが きょかされていないよ。アドレスバーの 🔒 から マイクを「きょか」にしてね。")
+        : "うまく きこえなかったよ。もういちど おしてね。";
+  };
+  recog.onend = () => {
+    listening = false;
+    $("micBtn").classList.remove("listening");
+    $("micLabel").textContent = "おして はなす";
+  };
+  try{ recog.start(); }catch(e){}
+};
+
+/* --- 手入力 --- */
+$("typeBtn").onclick = () => {
+  const n = normalize($("typeInput").value);
+  if(isSupported(n)) setWord(n);
+  else rejectWord(n);
+};
+$("typeInput").addEventListener("keydown", e => { if(e.key === "Enter") $("typeBtn").click(); });
+
+/* --- 開始/終了 --- */
+$("goBtn").onclick = () => {
+  $("setup").classList.remove("active");
+  $("practice").classList.add("active");
+  startWord();
+};
+$("backBtn").onclick = () => {
+  stopDemo(); speechSynthesis.cancel();
+  $("practice").classList.remove("active");
+  $("setup").classList.add("active");
+};
+$("speakBtn").onclick = () => speak(state.word);
+
+/* =========================================================
+   ② こどもの練習フロー
+========================================================= */
+const currentChar = () => state.word[state.charPos];
+const strokesOf = ch => CHARS[ch];
+
+function startWord(){
+  state.charPos = 0;
+  $("celebrate").classList.remove("show");
+  $("starCount").textContent = "⭐ " + state.stars;
+  renderSlots();
+  speak(state.word);
+  setMsg("よく きいてね 👂","");
+  setTimeout(openChar, 1300);
+}
+
+function renderSlots(){
+  const box = $("slots"); box.innerHTML = "";
+  [...state.word].forEach((ch,i)=>{
+    const s = document.createElement("div");
+    s.className = "slot" + (i < state.charPos ? " done" : (i === state.charPos ? " now" : ""));
+    if(i < state.charPos) s.textContent = ch;
+    else if(i === state.charPos) s.innerHTML = `<span class="ghost">${ch}</span>`;
+    box.appendChild(s);
+  });
+}
+
+function openChar(){
+  state.strokeIdx = 0;
+  buildStrokeDots();
+  speak(currentChar());
+  playDemo();
+}
+
+function finishChar(){
+  state.charPos++;
+  renderSlots();
+  if(state.charPos < state.word.length){
+    setMsg("つぎの もじ!","good");
+    setTimeout(openChar, 700);
+  }else{
+    finishWord();
+  }
+}
+
+function finishWord(){
+  state.stars++;
+  $("starCount").textContent = "⭐ " + state.stars;
+  $("celebWord").textContent = state.word;
+  $("celebrate").classList.add("show");
+  speak(state.word + "、かけたね!");
+  setMsg("","");
+}
+
+$("againBtn").onclick = startWord;
+$("newWordBtn").onclick = () => {
+  $("practice").classList.remove("active");
+  $("setup").classList.add("active");
+  state.word = ""; $("wordPreview").innerHTML = "";
+  refreshGo();
+  $("setupMsg").textContent = "";
+};
+
+/* =========================================================
+   描画エンジン(輪郭=字形表示 / 中心線=アニメとなぞり判定)
+========================================================= */
+function el(tag, attrs){
+  const e = document.createElementNS(SVGNS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+const medianToPath = pts => pts.map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" ");
+
+function outlineGroup(stroke, fill){
+  const g = el("g", {fill});
+  stroke.outlines.forEach(d => g.appendChild(el("path",{d})));
+  return g;
+}
+
+function renderStatic(){
+  const strokes = strokesOf(currentChar());
+  const gl=$("glyphLayer"), dl=$("doneLayer"), hl=$("hintLayer"), dm=$("demoLayer");
+  gl.innerHTML = dl.innerHTML = hl.innerHTML = dm.innerHTML = "";
+  $("trail").setAttribute("d","");
+
+  strokes.forEach((s,i) => {
+    gl.appendChild(outlineGroup(s, GUIDE));                 // 全体をうすく
+    if(i < state.strokeIdx) dl.appendChild(outlineGroup(s, INK)); // 書き済みは濃く
+  });
+
+  if(state.strokeIdx < strokes.length && state.mode === "trace"){
+    const s = strokes[state.strokeIdx];
+    hl.appendChild(el("path", {
+      d: medianToPath(s.median), fill:"none", stroke:ACCENT,
+      "stroke-width":16, "stroke-dasharray":"38 26", "stroke-opacity":".85",
+      "stroke-linecap":"round", "stroke-linejoin":"round"
+    }));
+    const [sx,sy] = s.median[0];
+    const c = el("circle", {cx:sx, cy:sy, r:52, fill:ACCENT});
+    const t = el("text", {x:sx, y:sy+22, "text-anchor":"middle",
+      "font-size":62, fill:"#fff", "font-weight":"900"});
+    t.textContent = state.strokeIdx + 1;
+    hl.appendChild(c); hl.appendChild(t);
+  }
+  updateStrokeDots();
+}
+
+function buildStrokeDots(){
+  const box = $("strokeDots"); box.innerHTML = "";
+  strokesOf(currentChar()).forEach((_,i)=>{
+    const s = document.createElement("span");
+    s.textContent = i+1; box.appendChild(s);
+  });
+}
+function updateStrokeDots(){
+  [...$("strokeDots").children].forEach((s,i)=>{
+    s.className = i < state.strokeIdx ? "done" : (i === state.strokeIdx && state.mode==="trace" ? "now" : "");
+  });
+}
+
+/* 中心線を等間隔サンプリング */
+const measurer = el("path", {visibility:"hidden"});
+svg.appendChild(measurer);
+function sampleMedian(median, step){
+  measurer.setAttribute("d", medianToPath(median));
+  const len = measurer.getTotalLength(), pts = [];
+  const n = Math.max(12, Math.floor(len/step));
+  for(let i=0;i<=n;i++) pts.push(measurer.getPointAtLength(len*i/n));
+  return {pts, len};
+}
+
+/* --- おてほん(輪郭でクリップした筆アニメ) --- */
+function playDemo(){
+  stopDemo();
+  state.mode = "demo"; state.strokeIdx = 0;
+  setMsg("おてほんを みてね 👀","");
+  $("traceBtn").disabled = true;
+  renderStatic();
+  const strokes = strokesOf(currentChar());
+  const dm = $("demoLayer"), defs = $("defs");
+  defs.innerHTML = "";
+  let i = 0;
+  function next(){
+    if(i >= strokes.length){
+      $("traceBtn").disabled = false;
+      setMsg("ゆびで なぞってみよう!","good");
+      startTrace();
+      return;
+    }
+    const s = strokes[i];
+    const clipId = "clip" + (state.clipSeq++);
+    const cp = el("clipPath", {id:clipId});
+    s.outlines.forEach(d => cp.appendChild(el("path",{d})));
+    defs.appendChild(cp);
+
+    const {len} = sampleMedian(s.median, 40);
+    const p = el("path", {
+      d: medianToPath(s.median), fill:"none", stroke:INK,
+      "stroke-width":150, "stroke-linecap":"round", "stroke-linejoin":"round",
+      "clip-path":`url(#${clipId})`,
+      "stroke-dasharray":len, "stroke-dashoffset":len
+    });
+    dm.appendChild(p);
+
+    const [sx,sy] = s.median[0];
+    const c = el("circle", {cx:sx, cy:sy, r:48, fill:ACCENT});
+    const t = el("text", {x:sx, y:sy+20, "text-anchor":"middle",
+      "font-size":56, fill:"#fff", "font-weight":"900"});
+    t.textContent = i+1;
+    dm.appendChild(c); dm.appendChild(t);
+
+    const dur = reduceMotion ? 10 : Math.max(450, len*1.4);
+    p.style.transition = `stroke-dashoffset ${dur}ms ease`;
+    requestAnimationFrame(()=> p.setAttribute("stroke-dashoffset", 0));
+    i++;
+    state.demoTimer = setTimeout(next, dur + 300);
+  }
+  next();
+}
+function stopDemo(){ clearTimeout(state.demoTimer); }
+
+/* --- なぞり --- */
+function startTrace(){
+  stopDemo();
+  state.mode = "trace"; state.strokeIdx = 0;
+  prepareStroke();
+}
+function prepareStroke(){
+  const strokes = strokesOf(currentChar());
+  if(state.strokeIdx >= strokes.length){
+    renderStatic();
+    setMsg("じょうずに かけたね!","good");
+    setTimeout(finishChar, 500);
+    return;
+  }
+  state.guidePts = sampleMedian(strokes[state.strokeIdx].median, 26).pts;
+  state.matched = 0; state.userPts = [];
+  renderStatic();
+}
+
+function setMsg(text, cls){ const m=$("msg"); m.textContent=text; m.className="msg "+cls; }
+
+function toSvgPt(evt){
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+const dist = (a,b)=> Math.hypot(a.x-b.x, a.y-b.y);
+
+const board = $("board");
+board.addEventListener("pointerdown", e => {
+  if(state.mode !== "trace" || !state.word || !dataReady) return;
+  const strokes = strokesOf(currentChar());
+  if(state.strokeIdx >= strokes.length) return;
+  const p = toSvgPt(e);
+  if(dist(p, state.guidePts[0]) > 130){
+    setMsg("まるの ばんごうから はじめてね","retry");
+    return;
+  }
+  board.setPointerCapture(e.pointerId);
+  state.drawing = true; state.matched = 0;
+  state.userPts = [p];
+  advanceMatch(p);
+  setMsg("そのちょうし!","");
+});
+board.addEventListener("pointermove", e => {
+  if(!state.drawing) return;
+  const p = toSvgPt(e);
+  const last = state.userPts[state.userPts.length-1];
+  if(dist(p,last) < 10) return;
+  state.userPts.push(p);
+  advanceMatch(p);
+  $("trail").setAttribute("d", state.userPts.map((q,i)=>(i?"L":"M")+q.x.toFixed(0)+","+q.y.toFixed(0)).join(" "));
+});
+board.addEventListener("pointerup", endStroke);
+board.addEventListener("pointercancel", endStroke);
+
+function advanceMatch(p){
+  const pts = state.guidePts;
+  let advanced = true;
+  while(advanced){
+    advanced = false;
+    for(let k=1; k<=5; k++){
+      const idx = state.matched + k;
+      if(idx < pts.length && dist(p, pts[idx]) < 110){
+        state.matched = idx; advanced = true; break;
+      }
+    }
+  }
+}
+function endStroke(){
+  if(!state.drawing) return;
+  state.drawing = false;
+  $("trail").setAttribute("d","");
+  const done = state.matched >= state.guidePts.length - 3;
+  if(done){
+    state.strokeIdx++;
+    prepareStroke();
+  }else{
+    setMsg("もういちど なぞってみよう","retry");
+    if(!reduceMotion){
+      board.classList.add("shake");
+      setTimeout(()=>board.classList.remove("shake"), 400);
+    }
+    state.matched = 0;
+  }
+}
+
+$("demoBtn").onclick = playDemo;
+$("traceBtn").onclick = startTrace;
+</script>
+</body>
+</html>

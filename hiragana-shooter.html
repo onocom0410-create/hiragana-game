@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ひらがな シューター</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky1:#1B2A4A; --sky2:#31456E; --card:#FFFFFF; --ink:#33334D;
+    --guide:#D2E0D5; --accent:#FF7B54; --ok:#5FAE7C; --gold:#FFC24B;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0; height:100%;}
+  body{
+    font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+    background:linear-gradient(var(--sky1),var(--sky2) 55%,#4E6285);
+    color:#fff; display:flex; justify-content:center;
+    overscroll-behavior:none; touch-action:manipulation; overflow:hidden;
+  }
+  #app{width:100%; max-width:480px; height:100dvh; display:flex; flex-direction:column; position:relative;}
+
+  /* ---- HUD ---- */
+  .hud{display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-weight:900; font-size:14px;}
+  .hud .xp{color:var(--gold);}
+  .gems{display:flex; gap:3px;}
+  .gems span{width:20px; height:20px; border-radius:50%; background:rgba(255,255,255,.15);
+    display:flex; align-items:center; justify-content:center; font-size:13px;}
+  .gems span.got{background:rgba(255,255,255,.9);}
+  .iconBtn{border:none; background:rgba(255,255,255,.15); color:#fff; border-radius:12px;
+    font-family:inherit; font-weight:900; font-size:13px; padding:7px 10px; cursor:pointer;}
+
+  /* ---- バトルフィールド ---- */
+  #field{flex:1; position:relative; overflow:hidden; min-height:120px;}
+  #baseline{position:absolute; left:0; right:0; bottom:6px; border-top:3px dashed rgba(255,255,255,.4);
+    text-align:center; font-size:11px; color:rgba(255,255,255,.6); padding-top:2px;}
+  .enemy{position:absolute; left:50%; transform:translateX(-50%); text-align:center; transition:top .3s linear;}
+  .enemy .body{font-size:56px; filter:drop-shadow(0 4px 6px rgba(0,0,0,.4));}
+  .enemy.hitAnim .body{animation:hitShake .35s;}
+  @keyframes hitShake{0%,100%{transform:scale(1);}30%{transform:scale(1.25) rotate(-8deg);}60%{transform:scale(.9) rotate(6deg);}}
+  .enemy .hp{display:flex; gap:3px; justify-content:center; margin-top:2px;}
+  .enemy .hp i{width:14px; height:6px; border-radius:3px; background:#E4483F;}
+  .enemy .hp i.off{background:rgba(255,255,255,.25);}
+  .wordRow{display:flex; gap:5px; justify-content:center; margin-bottom:4px; align-items:center;}
+  .cell{
+    width:42px; height:42px; border-radius:10px; background:#fff; color:var(--ink);
+    font-size:26px; font-weight:900; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 0 rgba(0,0,0,.25);
+  }
+  .cell.blank{background:#FFE3D7; color:var(--accent); border:3px dashed var(--accent);}
+  .cell.blank.armed{animation:blankPulse .9s infinite; cursor:pointer;}
+  @keyframes blankPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,123,84,.6);}50%{box-shadow:0 0 0 10px rgba(255,123,84,0);}}
+  .wordSpeak{border:none; background:#FFF3C9; border-radius:10px; font-size:16px; padding:5px 7px; cursor:pointer;}
+  .emojiHint{font-size:22px;}
+
+  #bullet{position:absolute; font-size:34px; font-weight:900; color:#fff;
+    text-shadow:0 0 8px var(--gold); display:none; z-index:8; pointer-events:none;
+    transition:top .45s ease-in, left .45s ease-in;}
+  .boom{position:absolute; font-size:50px; z-index:9; pointer-events:none; animation:boomA .6s forwards;}
+  @keyframes boomA{0%{transform:scale(.3); opacity:1;}100%{transform:scale(1.8); opacity:0;}}
+  .floatXp{position:absolute; font-weight:900; color:var(--gold); z-index:9; pointer-events:none; animation:floatUp 1s forwards;}
+  @keyframes floatUp{to{transform:translateY(-50px); opacity:0;}}
+
+  /* ---- 下部:ヒント+手書きパッド ---- */
+  #bottom{background:rgba(255,255,255,.95); border-radius:22px 22px 0 0; padding:8px 10px 10px; color:var(--ink);}
+  .padMsg{text-align:center; font-size:13px; font-weight:900; min-height:18px; margin-bottom:4px;}
+  .padMsg.good{color:var(--ok);} .padMsg.retry{color:var(--accent);}
+  .padRow{display:flex; gap:8px;}
+  .choices{display:flex; flex-direction:column; gap:6px; justify-content:center;}
+  .choiceBtn{
+    width:64px; height:56px; border:none; border-radius:14px; background:#fff; color:var(--ink);
+    font-family:inherit; font-size:28px; font-weight:900; cursor:pointer;
+    box-shadow:0 3px 0 #CBDACD; border:3px solid #DDE9DF;
+  }
+  .choiceBtn.sel{border-color:var(--accent); background:#FFE3D7;}
+  .choiceBtn:active{transform:translateY(2px);}
+  .padWrap{flex:1; position:relative;}
+  .pad{
+    width:100%; aspect-ratio:1; max-height:38dvh; background:#fff; border-radius:16px;
+    border:3px solid #DDE9DF; position:relative; overflow:hidden; touch-action:none; margin:0 auto;
+  }
+  .pad svg{width:100%; height:100%; display:block;}
+  .pad .ready{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    flex-direction:column; background:rgba(255,255,255,.92); z-index:4;
+  }
+  .pad .ready.show{display:flex;}
+  .pad .ready .big{font-size:64px; font-weight:900; animation:pop .4s;}
+  .pad .ready p{margin:2px 0 0; font-size:13px; font-weight:900; color:var(--accent);}
+  .strokeDotsMini{position:absolute; top:6px; right:8px; display:flex; gap:4px; z-index:3;}
+  .strokeDotsMini span{width:16px; height:16px; border-radius:50%; background:#DDE9DF; color:#8AA08E;
+    font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+  .strokeDotsMini span.done{background:var(--ok); color:#fff;}
+  .strokeDotsMini span.now{background:var(--accent); color:#fff;}
+  .sideBtns{display:flex; flex-direction:column; gap:6px; justify-content:center;}
+  .sideBtns button{
+    width:60px; border:none; border-radius:12px; font-family:inherit; font-weight:900;
+    font-size:12px; padding:9px 4px; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.15);
+  }
+  .demoB{background:#FFF3C9; color:#8A6D1B;}
+  .gachaB{background:linear-gradient(#FFD86B,#FFB13B); color:#7A4E00;}
+  .gachaB[disabled]{opacity:.45;}
+
+  /* ---- オーバーレイ ---- */
+  .overlay{
+    position:absolute; inset:0; background:rgba(20,30,55,.88); z-index:20;
+    display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px;
+  }
+  .overlay.show{display:flex;}
+  .overlay h2{font-size:26px; margin:0 0 8px;}
+  .overlay .huge{font-size:80px; animation:pop .6s;}
+  .overlay p{font-size:15px; font-weight:700; line-height:1.8; margin:6px 0 16px;}
+  .overlay button{
+    border:none; border-radius:18px; background:var(--accent); color:#fff;
+    font-family:inherit; font-size:17px; font-weight:900; padding:13px 30px; cursor:pointer;
+    box-shadow:0 4px 0 #D65F3C; margin:4px;
+  }
+  .overlay button.sub{background:rgba(255,255,255,.2); box-shadow:0 4px 0 rgba(0,0,0,.3);}
+  .capsule{font-size:70px; animation:capShake 1s;}
+  @keyframes capShake{0%,100%{transform:rotate(0);}20%{transform:rotate(-15deg);}40%{transform:rotate(15deg);}60%{transform:rotate(-10deg);}80%{transform:rotate(10deg);}}
+  .collList{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:320px; margin-bottom:10px;}
+  .collItem{background:rgba(255,255,255,.12); border-radius:14px; padding:8px 10px; font-size:13px; font-weight:700;}
+  .collItem b{font-size:24px; display:block;}
+  @keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.3);}100%{transform:scale(1);}}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.01s !important; transition-duration:.01s !important;}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="hud">
+    <span id="hearts">❤️❤️❤️</span>
+    <span class="xp" id="xp">⭐ 0</span>
+    <div class="gems" id="gemHud"></div>
+    <button class="iconBtn" id="collBtn">🎒</button>
+    <span id="stageLbl">ステージ 1</span>
+  </div>
+
+  <div id="field">
+    <div id="baseline">ここまで きたら ハートが へるよ</div>
+    <div id="bullet">あ</div>
+  </div>
+
+  <div id="bottom">
+    <div class="padMsg" id="padMsg">スタートしてね</div>
+    <div class="padRow">
+      <div class="choices" id="choices"></div>
+      <div class="padWrap">
+        <div class="pad" id="pad">
+          <svg id="svg" viewBox="0 0 1024 1024">
+            <defs id="defs"></defs>
+            <line x1="512" y1="30" x2="512" y2="994" stroke="#EDF3EE" stroke-width="10" stroke-dasharray="36 36"/>
+            <line x1="30" y1="512" x2="994" y2="512" stroke="#EDF3EE" stroke-width="10" stroke-dasharray="36 36"/>
+            <g id="glyphLayer"></g>
+            <g id="doneLayer"></g>
+            <g id="demoLayer"></g>
+            <g id="hintLayer"></g>
+            <path id="trail" d="" fill="none" stroke="#FF7B54" stroke-opacity=".55"
+                  stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="strokeDotsMini" id="strokeDots"></div>
+          <div class="ready" id="readyOv">
+            <div class="big" id="readyChar">あ</div>
+            <p>うえの オレンジのマスを タップ! 🚀</p>
+          </div>
+        </div>
+      </div>
+      <div class="sideBtns">
+        <button class="demoB" id="demoBtn">▶<br>おてほん</button>
+        <button class="gachaB" id="gachaBtn">🎰<br>ガチャ<br><span id="gachaCost">⭐30</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- オーバーレイ群 -->
+  <div class="overlay show" id="startOv">
+    <div class="huge">👾</div>
+    <h2>ひらがな シューター</h2>
+    <p>てきの ことばの あなに はいる もじを えらんで、<br>パッドに かいて、マスに うちこもう!<br>⭐を ためて ガチャ! 💎を 6しゅるい あつめたら クリア!</p>
+    <button id="startBtn">▶ スタート</button>
+    <div class="padMsg" id="loadState" style="color:#fff">もじデータを よみこみちゅう…</div>
+  </div>
+
+  <div class="overlay" id="gachaOv">
+    <div class="capsule" id="capsule">🎰</div>
+    <h2 id="gachaTitle">なにが でるかな…</h2>
+    <p id="gachaDesc"></p>
+    <button id="gachaClose">OK!</button>
+  </div>
+
+  <div class="overlay" id="clearOv">
+    <div class="huge">🏆</div>
+    <h2>ステージクリア!</h2>
+    <p>💎を 6しゅるい あつめたね!すごい!</p>
+    <button id="nextStageBtn">つぎの ステージへ ▶</button>
+  </div>
+
+  <div class="overlay" id="overOv">
+    <div class="huge">💔</div>
+    <h2>やられちゃった…</h2>
+    <p>でも あつめた アイテムは のこってるよ!</p>
+    <button id="retryBtn">もういちど ▶</button>
+  </div>
+
+  <div class="overlay" id="collOv">
+    <h2>🎒 コレクション</h2>
+    <div class="collList" id="collList"></div>
+    <button class="sub" id="collClose">とじる</button>
+  </div>
+
+</div>
+
+<script>
+/* ====== 文字データ(kana-svg-data / animCJK, LGPL) ====== */
+const DATA_URL = "https://cdn.jsdelivr.net/npm/kana-svg-data/dist/allHiragana.json";
+const INK="#33334D", GUIDE="#D2E0D5", ACCENT="#FF7B54";
+const CHARS = {};
+let dataReady = false;
+
+async function loadData(){
+  const el = document.getElementById("loadState");
+  try{
+    const res = await fetch(DATA_URL);
+    const all = await res.json();
+    for(const item of all){
+      const ch = String.fromCharCode(item.charCode);
+      const groups = new Map();
+      for(const s of item.strokes){
+        const n = parseInt(s.id);
+        if(!groups.has(n)) groups.set(n,{outlines:[],median:null});
+        groups.get(n).outlines.push(s.value);
+      }
+      for(const m of item.medians){
+        const n = parseInt(m.id);
+        if((m.id===String(n)||m.id===n+"a") && groups.has(n)) groups.get(n).median = m.value;
+      }
+      const strokes = [...groups.keys()].sort((a,b)=>a-b).map(n=>groups.get(n))
+        .filter(g=>g.median && g.median.length>1);
+      if(strokes.length) CHARS[ch]=strokes;
+    }
+    dataReady = true;
+    el.textContent = "じゅんび OK!";
+  }catch(e){
+    el.textContent = "もじデータを よみこめなかったよ。ネットに つないで ブラウザで ひらいてね。";
+  }
+}
+loadData();
+
+/* ====== 単語バンク(絵つき) ====== */
+const WORDS = [
+ {w:"りんご",e:"🍎"},{w:"ねこ",e:"🐱"},{w:"いぬ",e:"🐶"},{w:"ぱんだ",e:"🐼"},
+ {w:"たこ",e:"🐙"},{w:"すいか",e:"🍉"},{w:"ばなな",e:"🍌"},{w:"ほし",e:"⭐"},
+ {w:"つき",e:"🌙"},{w:"さかな",e:"🐟"},{w:"くるま",e:"🚗"},{w:"かさ",e:"☂️"},
+ {w:"ふね",e:"⛵"},{w:"きのこ",e:"🍄"},{w:"おにぎり",e:"🍙"},{w:"たまご",e:"🥚"},
+ {w:"とり",e:"🐦"},{w:"うみ",e:"🌊"},{w:"やま",e:"⛰️"},{w:"はな",e:"🌸"},
+ {w:"かに",e:"🦀"},{w:"うさぎ",e:"🐰"},{w:"ぞう",e:"🐘"},{w:"きりん",e:"🦒"},
+ {w:"かえる",e:"🐸"},{w:"くじら",e:"🐳"},{w:"ねずみ",e:"🐭"},{w:"らいおん",e:"🦁"}
+];
+const ENEMIES = ["👾","👹","👻","🐲","🦖","🧟"];
+const GEMS = [
+ {id:"r",icon:"🔴",name:"あかだま"},{id:"o",icon:"🟠",name:"だいだいだま"},
+ {id:"y",icon:"🟡",name:"きいろだま"},{id:"g",icon:"🟢",name:"みどりだま"},
+ {id:"b",icon:"🔵",name:"あおだま"},{id:"p",icon:"🟣",name:"むらさきだま"}
+];
+const EQUIPS = [
+ {id:"pen",icon:"⚔️",name:"つよい えんぴつ",desc:"こうげき +1!"},
+ {id:"shield",icon:"🛡️",name:"まもりの たて",desc:"1かい まもってくれる!"},
+ {id:"charm",icon:"🌟",name:"ほしの おまもり",desc:"もらえる ⭐が ふえる!"}
+];
+const GACHA_COST = 30;
+
+/* ====== ゲーム状態 ====== */
+const G = {
+  running:false, stage:1, hearts:3, xp:0,
+  gems:{}, equips:{pen:0, shield:0, charm:0}, shieldsLeft:0,
+  enemy:null, // {el, y, word, blankIdx, hp, maxHp, emoji, filled}
+  chosen:null, padState:"idle", // idle | tracing | ready
+  strokeIdx:0, guidePts:[], matched:0, drawing:false, userPts:[],
+  demoTimer:null, clipSeq:0, raf:null, lastT:0
+};
+
+const $ = id => document.getElementById(id);
+const svg = $("svg");
+const SVGNS = "http://www.w3.org/2000/svg";
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function speak(text, rate){
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang="ja-JP"; u.rate = rate || .9;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+const rand = a => a[Math.floor(Math.random()*a.length)];
+
+/* ====== HUD ====== */
+function updateHud(){
+  $("hearts").textContent = "❤️".repeat(G.hearts) + (G.shieldsLeft?("🛡️".repeat(G.shieldsLeft)):"") || "💔";
+  $("xp").textContent = "⭐ " + G.xp;
+  $("stageLbl").textContent = "ステージ " + G.stage;
+  const hud = $("gemHud"); hud.innerHTML = "";
+  GEMS.forEach(g=>{
+    const s = document.createElement("span");
+    if(G.gems[g.id]){ s.classList.add("got"); s.textContent = g.icon; }
+    hud.appendChild(s);
+  });
+  $("gachaBtn").disabled = G.xp < GACHA_COST;
+}
+
+/* ====== 敵 ====== */
+function spawnEnemy(){
+  const item = rand(WORDS);
+  const blankIdx = Math.floor(Math.random()*item.w.length);
+  const maxHp = Math.min(1 + Math.floor((G.stage-1)/2), 3);
+  const en = document.createElement("div");
+  en.className = "enemy";
+  en.style.top = "0%";
+  $("field").appendChild(en);
+  G.enemy = {el:en, y:0, word:item.w, emoji:item.e, blankIdx, hp:maxHp, maxHp, body:rand(ENEMIES)};
+  renderEnemy();
+  speak(item.w);
+  setPadMsg(`「${item.w}」の あなに はいる もじは どれかな?`,"");
+  makeChoices();
+  resetPad();
+}
+function renderEnemy(){
+  const E = G.enemy; if(!E) return;
+  let cells = "";
+  [...E.word].forEach((ch,i)=>{
+    if(i===E.blankIdx) cells += `<div class="cell blank ${G.padState==='ready'?'armed':''}" data-blank="1">?</div>`;
+    else cells += `<div class="cell">${ch}</div>`;
+  });
+  let hp = "";
+  for(let i=0;i<E.maxHp;i++) hp += `<i class="${i<E.hp?'':'off'}"></i>`;
+  E.el.innerHTML = `
+    <div class="wordRow"><span class="emojiHint">${E.emoji}</span>${cells}<button class="wordSpeak">🔊</button></div>
+    <div class="body">${E.body}</div>
+    <div class="hp">${hp}</div>`;
+  E.el.querySelector(".wordSpeak").onclick = ev => { ev.stopPropagation(); speak(E.word); };
+  const blank = E.el.querySelector("[data-blank]");
+  if(blank) blank.onclick = fireBullet;
+}
+
+/* ====== 選択肢 ====== */
+function makeChoices(){
+  const correct = G.enemy.word[G.enemy.blankIdx];
+  const pool = [...new Set(WORDS.flatMap(w=>[...w.w]))].filter(c=>c!==correct && CHARS[c]);
+  const opts = [correct];
+  while(opts.length<3){ const c = rand(pool); if(!opts.includes(c)) opts.push(c); }
+  opts.sort(()=>Math.random()-.5);
+  const box = $("choices"); box.innerHTML = "";
+  opts.forEach(ch=>{
+    const b = document.createElement("button");
+    b.className = "choiceBtn"; b.textContent = ch;
+    b.onclick = ()=> chooseChar(ch, b);
+    box.appendChild(b);
+  });
+}
+function chooseChar(ch, btn){
+  document.querySelectorAll(".choiceBtn").forEach(b=>b.classList.remove("sel"));
+  btn.classList.add("sel");
+  G.chosen = ch;
+  speak(ch);
+  startCharOnPad(ch);
+}
+
+/* ====== 手書きパッド(書き順エンジン) ====== */
+function el2(tag, attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs)e.setAttribute(k,attrs[k]); return e; }
+const medianToPath = pts => pts.map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" ");
+function outlineGroup(stroke, fill){
+  const g = el2("g",{fill});
+  stroke.outlines.forEach(d=>g.appendChild(el2("path",{d})));
+  return g;
+}
+const measurer = el2("path",{visibility:"hidden"}); svg.appendChild(measurer);
+function sampleMedian(median, step){
+  measurer.setAttribute("d", medianToPath(median));
+  const len = measurer.getTotalLength(), pts=[];
+  const n = Math.max(12, Math.floor(len/step));
+  for(let i=0;i<=n;i++) pts.push(measurer.getPointAtLength(len*i/n));
+  return {pts, len};
+}
+
+function resetPad(){
+  G.padState="idle"; G.chosen=null; G.strokeIdx=0;
+  stopDemo();
+  ["glyphLayer","doneLayer","demoLayer","hintLayer"].forEach(id=>$(id).innerHTML="");
+  $("defs").innerHTML=""; $("trail").setAttribute("d","");
+  $("strokeDots").innerHTML=""; $("readyOv").classList.remove("show");
+  renderEnemy && G.enemy && renderEnemy();
+}
+
+function startCharOnPad(ch){
+  G.padState="tracing"; G.strokeIdx=0;
+  $("readyOv").classList.remove("show");
+  buildStrokeDots(ch);
+  playDemo(ch);
+}
+
+function renderStatic(){
+  const strokes = CHARS[G.chosen];
+  const gl=$("glyphLayer"), dl=$("doneLayer"), hl=$("hintLayer"), dm=$("demoLayer");
+  gl.innerHTML=dl.innerHTML=hl.innerHTML=dm.innerHTML="";
+  $("trail").setAttribute("d","");
+  strokes.forEach((s,i)=>{
+    gl.appendChild(outlineGroup(s, GUIDE));
+    if(i<G.strokeIdx) dl.appendChild(outlineGroup(s, INK));
+  });
+  if(G.strokeIdx<strokes.length && G.padState==="tracing"){
+    const s = strokes[G.strokeIdx];
+    hl.appendChild(el2("path",{d:medianToPath(s.median),fill:"none",stroke:ACCENT,
+      "stroke-width":16,"stroke-dasharray":"38 26","stroke-opacity":".85",
+      "stroke-linecap":"round","stroke-linejoin":"round"}));
+    const [sx,sy]=s.median[0];
+    hl.appendChild(el2("circle",{cx:sx,cy:sy,r:60,fill:ACCENT}));
+    const t=el2("text",{x:sx,y:sy+26,"text-anchor":"middle","font-size":72,fill:"#fff","font-weight":"900"});
+    t.textContent=G.strokeIdx+1; hl.appendChild(t);
+  }
+  updateStrokeDots();
+}
+function buildStrokeDots(ch){
+  const box=$("strokeDots"); box.innerHTML="";
+  CHARS[ch].forEach((_,i)=>{const s=document.createElement("span"); s.textContent=i+1; box.appendChild(s);});
+}
+function updateStrokeDots(){
+  [...$("strokeDots").children].forEach((s,i)=>{
+    s.className = i<G.strokeIdx?"done":(i===G.strokeIdx&&G.padState==="tracing"?"now":"");
+  });
+}
+
+function playDemo(ch){
+  ch = ch || G.chosen; if(!ch) return;
+  stopDemo();
+  G.padState="tracing"; G.strokeIdx=0;
+  renderStatic();
+  setPadMsg("おてほんを みてね 👀","");
+  const strokes=CHARS[ch], dm=$("demoLayer"), defs=$("defs");
+  defs.innerHTML="";
+  let i=0;
+  function next(){
+    if(i>=strokes.length){
+      setPadMsg("①から じゅんばんに なぞろう!","good");
+      startTrace();
+      return;
+    }
+    const s=strokes[i];
+    const clipId="clip"+(G.clipSeq++);
+    const cp=el2("clipPath",{id:clipId});
+    s.outlines.forEach(d=>cp.appendChild(el2("path",{d})));
+    defs.appendChild(cp);
+    const {len}=sampleMedian(s.median,40);
+    const p=el2("path",{d:medianToPath(s.median),fill:"none",stroke:INK,
+      "stroke-width":150,"stroke-linecap":"round","stroke-linejoin":"round",
+      "clip-path":`url(#${clipId})`,"stroke-dasharray":len,"stroke-dashoffset":len});
+    dm.appendChild(p);
+    const [sx,sy]=s.median[0];
+    dm.appendChild(el2("circle",{cx:sx,cy:sy,r:52,fill:ACCENT}));
+    const t=el2("text",{x:sx,y:sy+22,"text-anchor":"middle","font-size":62,fill:"#fff","font-weight":"900"});
+    t.textContent=i+1; dm.appendChild(t);
+    const dur = reduceMotion?10:Math.max(380,len*1.1);
+    p.style.transition=`stroke-dashoffset ${dur}ms ease`;
+    requestAnimationFrame(()=>p.setAttribute("stroke-dashoffset",0));
+    i++;
+    G.demoTimer=setTimeout(next,dur+220);
+  }
+  next();
+}
+function stopDemo(){ clearTimeout(G.demoTimer); }
+
+function startTrace(){
+  stopDemo();
+  G.strokeIdx=0; prepareStroke();
+}
+function prepareStroke(){
+  const strokes=CHARS[G.chosen];
+  if(G.strokeIdx>=strokes.length){
+    // なぞり完了 → 弾チャージ
+    G.padState="ready";
+    renderStatic();
+    $("readyChar").textContent=G.chosen;
+    $("readyOv").classList.add("show");
+    setPadMsg("たまが チャージできた!","good");
+    renderEnemy();
+    return;
+  }
+  G.guidePts=sampleMedian(strokes[G.strokeIdx].median,26).pts;
+  G.matched=0; G.userPts=[];
+  renderStatic();
+}
+
+function setPadMsg(t,cls){ const m=$("padMsg"); m.textContent=t; m.className="padMsg "+cls; }
+
+function toSvgPt(evt){
+  const pt=svg.createSVGPoint(); pt.x=evt.clientX; pt.y=evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+
+const pad=$("pad");
+pad.addEventListener("pointerdown",e=>{
+  if(G.padState!=="tracing"||!G.chosen) return;
+  const p=toSvgPt(e);
+  if(dist(p,G.guidePts[0])>140){ setPadMsg("まるの ばんごうから はじめてね","retry"); return; }
+  pad.setPointerCapture(e.pointerId);
+  G.drawing=true; G.matched=0; G.userPts=[p];
+  advanceMatch(p);
+});
+pad.addEventListener("pointermove",e=>{
+  if(!G.drawing) return;
+  const p=toSvgPt(e);
+  const last=G.userPts[G.userPts.length-1];
+  if(dist(p,last)<10) return;
+  G.userPts.push(p); advanceMatch(p);
+  $("trail").setAttribute("d",G.userPts.map((q,i)=>(i?"L":"M")+q.x.toFixed(0)+","+q.y.toFixed(0)).join(" "));
+});
+pad.addEventListener("pointerup",endStroke);
+pad.addEventListener("pointercancel",endStroke);
+
+function advanceMatch(p){
+  const pts=G.guidePts;
+  let adv=true;
+  while(adv){
+    adv=false;
+    for(let k=1;k<=5;k++){
+      const idx=G.matched+k;
+      if(idx<pts.length&&dist(p,pts[idx])<115){ G.matched=idx; adv=true; break; }
+    }
+  }
+}
+function endStroke(){
+  if(!G.drawing) return;
+  G.drawing=false;
+  $("trail").setAttribute("d","");
+  if(G.matched>=G.guidePts.length-3){
+    G.strokeIdx++; prepareStroke();
+  }else{
+    setPadMsg("もういちど なぞってみよう","retry");
+    G.matched=0;
+  }
+}
+$("demoBtn").onclick=()=>{ if(G.chosen) playDemo(); };
+
+/* ====== 発射! ====== */
+function fireBullet(){
+  if(G.padState!=="ready"||!G.enemy) return;
+  const E=G.enemy;
+  const correct = G.chosen===E.word[E.blankIdx];
+  const b=$("bullet");
+  const fieldR=$("field").getBoundingClientRect();
+  const padR=pad.getBoundingClientRect();
+  const cellR=E.el.querySelector("[data-blank]").getBoundingClientRect();
+  b.textContent=G.chosen;
+  b.style.display="block";
+  b.style.transition="none";
+  b.style.left=(padR.left+padR.width/2-fieldR.left-17)+"px";
+  b.style.top=(fieldR.height-10)+"px";
+  requestAnimationFrame(()=>{
+    b.style.transition="top .45s ease-in, left .45s ease-in";
+    b.style.left=(cellR.left+cellR.width/2-fieldR.left-17)+"px";
+    b.style.top=(cellR.top+cellR.height/2-fieldR.top-17)+"px";
+  });
+  G.padState="idle";
+  $("readyOv").classList.remove("show");
+  setTimeout(()=>{
+    b.style.display="none";
+    if(correct) hitEnemy(); else missEnemy();
+  },470);
+}
+function effectAt(rect, html, cls){
+  const fieldR=$("field").getBoundingClientRect();
+  const d=document.createElement("div");
+  d.className=cls; d.textContent=html;
+  d.style.left=(rect.left+rect.width/2-fieldR.left-20)+"px";
+  d.style.top=(rect.top-fieldR.top-10)+"px";
+  $("field").appendChild(d);
+  setTimeout(()=>d.remove(),1100);
+}
+function hitEnemy(){
+  const E=G.enemy;
+  const dmg = 1 + G.equips.pen;
+  E.hp -= dmg;
+  E.el.classList.add("hitAnim");
+  effectAt(E.el.getBoundingClientRect(),"💥","boom");
+  // マスを埋める
+  E.filledChar = E.word[E.blankIdx];
+  speak(E.word + "!");
+  if(E.hp<=0){
+    const bonus = 10 + G.stage*2 + G.equips.charm*5;
+    G.xp += bonus;
+    effectAt(E.el.getBoundingClientRect(),"⭐+"+bonus,"floatXp");
+    setPadMsg(`「${E.word}」を たおした! ⭐${bonus} ゲット!`,"good");
+    E.el.remove(); G.enemy=null;
+    updateHud();
+    setTimeout(()=>{ if(G.running) spawnEnemy(); },1200);
+  }else{
+    // 別の単語で継続(タフな敵)
+    setPadMsg("こうかばつぐん! まだ げんきだ、つぎの ことば!","good");
+    const item=rand(WORDS);
+    E.word=item.w; E.emoji=item.e;
+    E.blankIdx=Math.floor(Math.random()*item.w.length);
+    E.y=Math.max(0,E.y-12); // 少しノックバック
+    renderEnemy(); makeChoices(); resetPad();
+    speak(item.w);
+    updateHud();
+  }
+}
+function missEnemy(){
+  const E=G.enemy;
+  effectAt(E.el.getBoundingClientRect(),"💨","boom");
+  setPadMsg(`「${G.chosen}」じゃ ないみたい。もういちど えらぼう!`,"retry");
+  document.querySelectorAll(".choiceBtn").forEach(b=>b.classList.remove("sel"));
+  resetPad();
+}
+
+/* ====== 降下ループ ====== */
+function loop(t){
+  if(!G.running){ G.raf=null; return; }
+  const dt = G.lastT ? (t-G.lastT) : 16;
+  G.lastT = t;
+  const overlayOpen = document.querySelector(".overlay.show");
+  if(G.enemy && !overlayOpen){
+    const duration = Math.max(45000, 95000 * Math.pow(.9, G.stage-1)); // 降下時間
+    G.enemy.y += dt/duration*100;
+    if(G.enemy.y>=88){
+      baseHit();
+    }else{
+      G.enemy.el.style.top = G.enemy.y + "%";
+    }
+  }
+  G.raf=requestAnimationFrame(loop);
+}
+function baseHit(){
+  const E=G.enemy;
+  effectAt(E.el.getBoundingClientRect(),"💢","boom");
+  E.el.remove(); G.enemy=null;
+  if(G.shieldsLeft>0){
+    G.shieldsLeft--;
+    setPadMsg("🛡️たてが まもってくれた!","good");
+  }else{
+    G.hearts--;
+    setPadMsg("いたい! ハートが へっちゃった…","retry");
+  }
+  updateHud();
+  if(G.hearts<=0){
+    G.running=false;
+    $("overOv").classList.add("show");
+    speak("やられちゃった。でも、もういちど がんばろう!");
+  }else{
+    setTimeout(()=>{ if(G.running) spawnEnemy(); },1000);
+  }
+}
+
+/* ====== ガチャ ====== */
+$("gachaBtn").onclick=()=>{
+  if(G.xp<GACHA_COST) return;
+  G.xp-=GACHA_COST; updateHud();
+  const r=Math.random();
+  let icon,title,desc;
+  if(r<.55){
+    const gem=rand(GEMS);
+    if(G.gems[gem.id]){
+      G.xp+=10;
+      icon=gem.icon; title=gem.name+"(かぶり)"; desc="もう もってたから ⭐10に へんしん!";
+    }else{
+      G.gems[gem.id]=true;
+      icon=gem.icon; title=gem.name+" ゲット!";
+      const got=Object.keys(G.gems).length;
+      desc=`💎 ${got}/6 しゅるい あつまったよ!`;
+    }
+  }else if(r<.8){
+    const eq=rand(EQUIPS);
+    G.equips[eq.id]++;
+    if(eq.id==="shield") G.shieldsLeft++;
+    icon=eq.icon; title=eq.name+" ゲット!"; desc=eq.desc;
+  }else{
+    G.hearts=Math.min(3,G.hearts+1);
+    icon="💖"; title="ハートかいふく!"; desc="ハートが 1つ もどったよ!";
+  }
+  $("capsule").textContent=icon;
+  $("gachaTitle").textContent=title;
+  $("gachaDesc").textContent=desc;
+  $("gachaOv").classList.add("show");
+  speak(title);
+  updateHud();
+};
+$("gachaClose").onclick=()=>{
+  $("gachaOv").classList.remove("show");
+  if(Object.keys(G.gems).length>=6){
+    G.running=false;
+    $("clearOv").classList.add("show");
+    speak("ステージクリア!おめでとう!");
+  }
+};
+
+/* ====== コレクション ====== */
+$("collBtn").onclick=()=>{
+  const list=$("collList"); list.innerHTML="";
+  GEMS.forEach(g=>{
+    const d=document.createElement("div"); d.className="collItem";
+    d.innerHTML=`<b>${G.gems[g.id]?g.icon:"❔"}</b>${g.name}`;
+    list.appendChild(d);
+  });
+  EQUIPS.forEach(eq=>{
+    const d=document.createElement("div"); d.className="collItem";
+    d.innerHTML=`<b>${eq.icon}</b>${eq.name} ×${G.equips[eq.id]}`;
+    list.appendChild(d);
+  });
+  $("collOv").classList.add("show");
+};
+$("collClose").onclick=()=>$("collOv").classList.remove("show");
+
+/* ====== 進行 ====== */
+$("startBtn").onclick=()=>{
+  if(!dataReady){ speak("まだ じゅんびちゅうだよ"); return; }
+  $("startOv").classList.remove("show");
+  G.running=true; G.lastT=0;
+  updateHud();
+  spawnEnemy();
+  if(!G.raf) G.raf=requestAnimationFrame(loop);
+};
+$("nextStageBtn").onclick=()=>{
+  $("clearOv").classList.remove("show");
+  G.stage++; G.gems={}; G.hearts=3;
+  G.running=true; G.lastT=0;
+  updateHud(); spawnEnemy();
+  if(!G.raf) G.raf=requestAnimationFrame(loop);
+};
+$("retryBtn").onclick=()=>{
+  $("overOv").classList.remove("show");
+  G.hearts=3; G.running=true; G.lastT=0;
+  updateHud(); spawnEnemy();
+  if(!G.raf) G.raf=requestAnimationFrame(loop);
+};
+</script>
+</body>
+</html>
