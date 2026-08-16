@@ -126,6 +126,14 @@
   .collList{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:320px; margin-bottom:10px;}
   .collItem{background:rgba(255,255,255,.12); border-radius:14px; padding:8px 10px; font-size:13px; font-weight:700;}
   .collItem b{font-size:24px; display:block;}
+  .stageGrid{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:300px; margin:6px 0 18px;}
+  .stageBtn{
+    width:76px; height:76px; border-radius:18px; border:none; cursor:pointer;
+    font-family:inherit; font-weight:900; font-size:17px; color:#fff;
+    background:var(--accent); box-shadow:0 4px 0 #D65F3C;
+  }
+  .stageBtn.cleared{background:var(--gold); box-shadow:0 4px 0 #C98F1F; color:#5A3D00; font-size:13px;}
+  .stageBtn.locked{background:rgba(255,255,255,.15); box-shadow:none; color:rgba(255,255,255,.6); font-size:22px; cursor:default;}
   @keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.3);}100%{transform:scale(1);}}
   @media (prefers-reduced-motion: reduce){*{animation-duration:.01s !important; transition-duration:.01s !important;}}
 </style>
@@ -186,9 +194,15 @@
   <div class="overlay show" id="startOv">
     <div class="huge">👾</div>
     <h2>ひらがな シューター</h2>
-    <p>てきの ことばの あなに はいる もじを えらんで、<br>パッドに かいて、マスに うちこもう!<br>⭐を ためて ガチャ! 💎を 6しゅるい あつめたら クリア!</p>
-    <button id="startBtn">▶ スタート</button>
+    <p>てきの ことばの あなに はいる もじを えらんで、<br>パッドに かいて、マスに うちこもう!<br>ステージを クリアして つぎへ すすもう!</p>
+    <button id="startBtn">▶ ステージを えらぶ</button>
     <div class="padMsg" id="loadState" style="color:#fff">もじデータを よみこみちゅう…</div>
+  </div>
+
+  <div class="overlay" id="stageSelOv">
+    <h2>ステージを えらぼう</h2>
+    <div class="stageGrid" id="stageGrid"></div>
+    <button class="sub" id="stageSelHomeBtn">🏠 ホームへ</button>
   </div>
 
   <div class="overlay" id="gachaOv">
@@ -200,9 +214,10 @@
 
   <div class="overlay" id="clearOv">
     <div class="huge">🏆</div>
-    <h2>ステージクリア!</h2>
-    <p>💎を 6しゅるい あつめたね!すごい!</p>
+    <h2 id="clearTitle">ステージクリア!</h2>
+    <p id="clearDesc"></p>
     <button id="nextStageBtn">つぎの ステージへ ▶</button>
+    <button class="sub" id="clearStageSelBtn">🗺 ステージせんたく</button>
     <button class="sub" id="clearHomeBtn">🏠 ホームへ</button>
   </div>
 
@@ -211,6 +226,7 @@
     <h2>やられちゃった…</h2>
     <p>でも あつめた アイテムは のこってるよ!</p>
     <button id="retryBtn">もういちど ▶</button>
+    <button class="sub" id="overStageSelBtn">🗺 ステージせんたく</button>
     <button class="sub" id="overHomeBtn">🏠 ホームへ</button>
   </div>
 
@@ -219,6 +235,7 @@
     <h2>タイムオーバー!</h2>
     <p id="timeupSummary">よく がんばったね!</p>
     <button id="timeupRetryBtn">もういちど ▶</button>
+    <button class="sub" id="timeupStageSelBtn">🗺 ステージせんたく</button>
     <button class="sub" id="timeupHomeBtn">🏠 ホームへ</button>
   </div>
 
@@ -276,6 +293,44 @@ const WORDS = [
  {w:"かに",e:"🦀"},{w:"うさぎ",e:"🐰"},{w:"ぞう",e:"🐘"},{w:"きりん",e:"🦒"},
  {w:"かえる",e:"🐸"},{w:"くじら",e:"🐳"},{w:"ねずみ",e:"🐭"},{w:"らいおん",e:"🦁"}
 ];
+
+/* ====== ステージ表(1レベル=1ルール固定。「きいて かこう」系ゲームと共通) ======
+   pool: 出題する単語の文字数タイプ / blank: あなの位置(そのステージ内はずっと同じ)
+   goal: このステージで何問正解したらクリアか */
+const STAGES = [
+ {id:"1-1", pool:"len2", blank:"first",  goal:5},
+ {id:"1-2", pool:"len2", blank:"last",   goal:5},
+ {id:"1-3", pool:"len3", blank:"first",  goal:5},
+ {id:"1-4", pool:"len3", blank:"last",   goal:5},
+ {id:"2-1", pool:"len3", blank:"mid",    goal:5},
+ {id:"2-2", pool:"all",  blank:"random", goal:5}
+];
+function poolFor(key){
+  if(key==="len2") return WORDS.filter(w=>w.w.length===2);
+  if(key==="len3") return WORDS.filter(w=>w.w.length===3);
+  return WORDS;
+}
+function blankIndexFor(word, mode){
+  if(mode==="first") return 0;
+  if(mode==="last") return word.length-1;
+  if(mode==="mid") return Math.floor(word.length/2);
+  return Math.floor(Math.random()*word.length);
+}
+const PROGRESS_KEY = "hiragana_stage_progress_v1";
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {clearedCount:0};
+}
+function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
+function isUnlocked(idx){ return idx <= loadProgress().clearedCount; }
+function markCleared(idx){
+  const p=loadProgress();
+  if(idx+1 > p.clearedCount){ p.clearedCount = idx+1; saveProgress(p); }
+}
+
 /* ====== てき(十二支モブロボット, スーパーデフォルメ・オリジナルデザイン) ====== */
 function zodiacBot(bg,panel,back,front){
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -345,7 +400,7 @@ const GACHA_COST = 30;
 
 /* ====== ゲーム状態 ====== */
 const G = {
-  running:false, stage:1, hearts:3, xp:0,
+  running:false, stageIdx:0, stageDef:null, defeats:0, hearts:3, xp:0,
   gems:{}, equips:{pen:0, shield:0, charm:0}, shieldsLeft:0,
   enemy:null, // {el, y, word, blankIdx, hp, maxHp, emoji, filled}
   chosen:null, padState:"idle", // idle | tracing | ready
@@ -394,6 +449,7 @@ function beep(freq,dur,type,vol,delay){
 function sfxCorrect(){ beep(880,.12,"sine",.25); beep(1318.5,.18,"sine",.22,.1); }
 function sfxMiss(){ beep(220,.18,"sawtooth",.2); beep(160,.24,"sawtooth",.18,.08); }
 function sfxTimeUp(){ beep(523.25,.16,"square",.22,0); beep(392,.16,"square",.22,.16); beep(261.63,.34,"square",.24,.32); }
+function sfxClear(){ beep(523.25,.14,"square",.24,0); beep(659.25,.14,"square",.24,.13); beep(784,.14,"square",.24,.26); beep(1046.5,.3,"square",.26,.39); }
 
 /* ====== BGM(8bit・ロックマンX風スーパーデフォルメ, オリジナル曲) ====== */
 const BGM_BPM = 150;
@@ -505,7 +561,7 @@ function toggleBgm(){
 function updateHud(){
   $("hearts").textContent = "❤️".repeat(G.hearts) + (G.shieldsLeft?("🛡️".repeat(G.shieldsLeft)):"") || "💔";
   $("xp").textContent = "⭐ " + G.xp;
-  $("stageLbl").textContent = "ステージ " + G.stage;
+  $("stageLbl").textContent = G.stageDef ? ("ステージ " + G.stageDef.id + " (" + G.defeats + "/" + G.stageDef.goal + ")") : "";
   const hud = $("gemHud"); hud.innerHTML = "";
   GEMS.forEach(g=>{
     const s = document.createElement("span");
@@ -526,14 +582,13 @@ function updateTimerDisplay(){
 
 /* ====== 敵 ====== */
 function spawnEnemy(){
-  const item = rand(WORDS);
-  const blankIdx = Math.floor(Math.random()*item.w.length);
-  const maxHp = Math.min(1 + Math.floor((G.stage-1)/2), 3);
+  const item = rand(poolFor(G.stageDef.pool));
+  const blankIdx = blankIndexFor(item.w, G.stageDef.blank);
   const en = document.createElement("div");
   en.className = "enemy";
   en.style.top = "0%";
   $("field").appendChild(en);
-  G.enemy = {el:en, y:0, word:item.w, emoji:item.e, blankIdx, hp:maxHp, maxHp, body:rand(ENEMIES)};
+  G.enemy = {el:en, y:0, word:item.w, emoji:item.e, blankIdx, hp:1, maxHp:1, body:rand(ENEMIES)};
   renderEnemy();
   speak(item.w);
   setPadMsg(`「${item.w}」の あなに はいる もじは どれかな?`,"");
@@ -795,32 +850,34 @@ function effectAt(rect, html, cls){
 function hitEnemy(){
   sfxCorrect();
   const E=G.enemy;
-  const dmg = 1 + G.equips.pen;
-  E.hp -= dmg;
   E.el.classList.add("hitAnim");
   effectAt(E.el.getBoundingClientRect(),"💥","boom");
-  // マスを埋める
-  E.filledChar = E.word[E.blankIdx];
   speak(E.word + "!");
-  if(E.hp<=0){
-    const bonus = 10 + G.stage*2 + G.equips.charm*5;
-    G.xp += bonus;
-    effectAt(E.el.getBoundingClientRect(),"⭐+"+bonus,"floatXp");
-    setPadMsg(`「${E.word}」を たおした! ⭐${bonus} ゲット!`,"good");
-    E.el.remove(); G.enemy=null;
-    updateHud();
-    setTimeout(()=>{ if(G.running) spawnEnemy(); },1200);
+  const bonus = 10 + G.equips.charm*5;
+  G.xp += bonus;
+  G.defeats++;
+  effectAt(E.el.getBoundingClientRect(),"⭐+"+bonus,"floatXp");
+  E.el.remove(); G.enemy=null;
+  updateHud();
+  if(G.defeats>=G.stageDef.goal){
+    stageClear();
   }else{
-    // 別の単語で継続(タフな敵)
-    setPadMsg("こうかばつぐん! まだ げんきだ、つぎの ことば!","good");
-    const item=rand(WORDS);
-    E.word=item.w; E.emoji=item.e;
-    E.blankIdx=Math.floor(Math.random()*item.w.length);
-    E.y=Math.max(0,E.y-12); // 少しノックバック
-    renderEnemy(); makeChoices(); resetPad();
-    speak(item.w);
-    updateHud();
+    setPadMsg(`「${E.word}」を たおした! ⭐${bonus} ゲット!`,"good");
+    setTimeout(()=>{ if(G.running) spawnEnemy(); },1200);
   }
+}
+function stageClear(){
+  G.running=false;
+  markCleared(G.stageIdx);
+  const isLast = G.stageIdx+1 >= STAGES.length;
+  $("nextStageBtn").style.display = isLast ? "none" : "";
+  $("clearTitle").textContent = isLast ? "ぜんぶ クリア!" : "ステージクリア!";
+  $("clearDesc").textContent = isLast
+    ? "すべての ステージを クリアしたよ!すごい!"
+    : `ステージ ${G.stageDef.id} クリア!つぎの ステージが ひらけたよ`;
+  $("clearOv").classList.add("show");
+  sfxClear();
+  speak(isLast ? "ぜんぶの ステージを クリアしたよ!すごい!" : "ステージクリア!おめでとう!");
 }
 function missEnemy(){
   sfxMiss();
@@ -848,7 +905,7 @@ function loop(t){
     updateTimerDisplay();
   }
   if(G.enemy && !overlayOpen){
-    const duration = Math.max(45000, 95000 * Math.pow(.9, G.stage-1)); // 降下時間
+    const duration = Math.max(45000, 95000 * Math.pow(.9, G.stageIdx)); // 降下時間
     G.enemy.y += dt/duration*100;
     if(G.enemy.y>=88){
       baseHit();
@@ -921,11 +978,6 @@ $("gachaBtn").onclick=()=>{
 };
 $("gachaClose").onclick=()=>{
   $("gachaOv").classList.remove("show");
-  if(Object.keys(G.gems).length>=6){
-    G.running=false;
-    $("clearOv").classList.add("show");
-    speak("ステージクリア!おめでとう!");
-  }
 };
 
 /* ====== コレクション ====== */
@@ -945,37 +997,53 @@ $("collBtn").onclick=()=>{
 };
 $("collClose").onclick=()=>$("collOv").classList.remove("show");
 
-/* ====== 進行 ====== */
-$("startBtn").onclick=()=>{
-  if(!dataReady){ speak("まだ じゅんびちゅうだよ"); return; }
+/* ====== ステージ せんたく ====== */
+function renderStageSelect(){
+  const box=$("stageGrid"); box.innerHTML="";
+  const prog=loadProgress();
+  STAGES.forEach((s,i)=>{
+    const unlocked = i<=prog.clearedCount;
+    const cleared = i<prog.clearedCount;
+    const b=document.createElement("button");
+    b.className="stageBtn"+(cleared?" cleared":(unlocked?"":" locked"));
+    b.innerHTML = unlocked ? (cleared?"⭐<br>"+s.id : s.id) : "🔒";
+    b.disabled = !unlocked;
+    if(unlocked) b.onclick=()=>startStage(i);
+    box.appendChild(b);
+  });
+}
+function startStage(idx){
+  G.stageIdx=idx; G.stageDef=STAGES[idx]; G.defeats=0;
+  G.hearts=3; G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
+  document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("show"));
   startBgm();
-  $("startOv").classList.remove("show");
-  G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
   updateHud(); updateTimerDisplay();
   spawnEnemy();
   if(!G.raf) G.raf=requestAnimationFrame(loop);
+}
+
+/* ====== 進行 ====== */
+$("startBtn").onclick=()=>{
+  if(!dataReady){ speak("まだ じゅんびちゅうだよ"); return; }
+  try{ getCtx().resume(); }catch(e){}
+  $("startOv").classList.remove("show");
+  renderStageSelect();
+  $("stageSelOv").classList.add("show");
 };
-$("nextStageBtn").onclick=()=>{
-  $("clearOv").classList.remove("show");
-  G.stage++; G.gems={}; G.hearts=3;
-  G.running=true; G.lastT=0;
-  updateHud(); spawnEnemy(); startBgm();
-  if(!G.raf) G.raf=requestAnimationFrame(loop);
-};
-$("retryBtn").onclick=()=>{
-  $("overOv").classList.remove("show");
-  G.hearts=3; G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
-  updateHud(); updateTimerDisplay(); spawnEnemy(); startBgm();
-  if(!G.raf) G.raf=requestAnimationFrame(loop);
-};
-$("timeupRetryBtn").onclick=()=>{
-  $("timeOv").classList.remove("show");
-  G.hearts=3; G.running=true; G.lastT=0; G.timeLeft=G.timeLimit; G.lastSec=null;
-  updateHud(); updateTimerDisplay(); spawnEnemy(); startBgm();
-  if(!G.raf) G.raf=requestAnimationFrame(loop);
-};
+$("nextStageBtn").onclick=()=>{ startStage(G.stageIdx+1); };
+$("retryBtn").onclick=()=>{ startStage(G.stageIdx); };
+$("timeupRetryBtn").onclick=()=>{ startStage(G.stageIdx); };
+function goToStageSelect(){
+  document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("show"));
+  renderStageSelect();
+  $("stageSelOv").classList.add("show");
+}
+$("clearStageSelBtn").onclick=goToStageSelect;
+$("overStageSelBtn").onclick=goToStageSelect;
+$("timeupStageSelBtn").onclick=goToStageSelect;
 $("bgmBtn").onclick=toggleBgm;
 $("homeBtn").onclick=()=>{ location.href="index.html"; };
+$("stageSelHomeBtn").onclick=()=>{ location.href="index.html"; };
 $("overHomeBtn").onclick=()=>{ location.href="index.html"; };
 $("clearHomeBtn").onclick=()=>{ location.href="index.html"; };
 $("timeupHomeBtn").onclick=()=>{ location.href="index.html"; };

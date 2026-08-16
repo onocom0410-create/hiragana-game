@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ぬりぬり ひらがな</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#33334D; --accent:#FF7B54; --ok:#5FAE7C; --gold:#FFC24B;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0; height:100%;}
+  body{
+    font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+    background:linear-gradient(135deg,#FFF6E0,#E9FFEA 60%,#E0F4FF);
+    color:var(--ink); display:flex; justify-content:center;
+    overscroll-behavior:none; touch-action:manipulation; overflow:hidden;
+  }
+  #app{width:100%; max-width:480px; height:100dvh; display:flex; flex-direction:column; position:relative;}
+
+  .hud{display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-weight:900; font-size:14px;}
+  .iconBtn{border:none; background:rgba(0,0,0,.08); color:var(--ink); border-radius:12px;
+    font-family:inherit; font-weight:900; font-size:13px; padding:7px 10px; cursor:pointer;}
+
+  #boardWrap{flex:1; display:flex; align-items:center; justify-content:center; padding:8px 20px; min-height:0;}
+  #board{
+    width:100%; max-width:340px; aspect-ratio:1; display:grid;
+    grid-template-columns:repeat(4,1fr); gap:8px;
+  }
+  .tile{
+    background:#fff; border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.08) inset, 0 2px 4px rgba(0,0,0,.06);
+    transition:background .25s;
+  }
+  .tile.pop{animation:tilePop .45s;}
+  @keyframes tilePop{0%{transform:scale(.5); opacity:.4;}60%{transform:scale(1.12);}100%{transform:scale(1); opacity:1;}}
+
+  #bottom{background:rgba(255,255,255,.95); border-radius:22px 22px 0 0; padding:10px 14px 16px;}
+  .prompt{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px;}
+  .promptEmoji{font-size:30px;}
+  .promptWord{font-size:26px; font-weight:900; letter-spacing:2px;}
+  .blankCh{color:var(--accent); border-bottom:4px solid var(--accent); padding:0 2px;}
+  .speakBtn{border:none; background:#FFF3C9; border-radius:10px; font-size:16px; padding:5px 8px; cursor:pointer;}
+  .padMsg{text-align:center; font-size:13px; font-weight:900; min-height:18px; margin:4px 0;}
+  .padMsg.good{color:var(--ok);} .padMsg.retry{color:var(--accent);}
+  .choices{display:flex; gap:10px; justify-content:center;}
+  .choiceBtn{
+    width:64px; height:56px; border-radius:14px; background:#fff; color:var(--ink);
+    font-family:inherit; font-size:28px; font-weight:900; cursor:pointer;
+    box-shadow:0 3px 0 #DDE9DF; border:3px solid #DDE9DF;
+  }
+  .choiceBtn:active{transform:translateY(2px);}
+  .choiceBtn.wrong{animation:shakeX .35s;}
+  @keyframes shakeX{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+  .overlay{
+    position:absolute; inset:0; background:rgba(255,255,255,.94); z-index:20;
+    display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px;
+  }
+  .overlay.show{display:flex;}
+  .overlay h2{font-size:24px; margin:0 0 8px;}
+  .overlay .huge{font-size:70px; animation:pop .5s;}
+  .overlay p{font-size:14px; font-weight:700; line-height:1.7; margin:6px 0 14px;}
+  .overlay button{
+    border:none; border-radius:18px; background:var(--accent); color:#fff;
+    font-family:inherit; font-size:16px; font-weight:900; padding:12px 26px; cursor:pointer;
+    box-shadow:0 4px 0 #D65F3C; margin:4px;
+  }
+  .overlay button.sub{background:rgba(0,0,0,.08); color:var(--ink); box-shadow:0 4px 0 rgba(0,0,0,.15);}
+  @keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.3);}100%{transform:scale(1);}}
+  .mascots{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:300px; margin-bottom:16px;}
+  .mascotCard{
+    width:78px; border:none; background:rgba(0,0,0,.05); border-radius:16px; padding:8px 4px 6px;
+    cursor:pointer; font-family:inherit;
+  }
+  .mascotCard svg{width:56px; height:56px; display:block; margin:0 auto;}
+  .mascotCard .mName{font-size:11px; font-weight:900; color:var(--ink); margin-top:2px; display:block;}
+  .mascotCard.sel{background:#FFE3D7; box-shadow:0 0 0 3px var(--accent) inset; transform:scale(1.06);}
+  .stageGrid{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:300px; margin:6px 0 18px;}
+  .stageBtn{
+    width:76px; height:76px; border-radius:18px; border:none; cursor:pointer;
+    font-family:inherit; font-weight:900; font-size:17px; color:#fff;
+    background:var(--accent); box-shadow:0 4px 0 #D65F3C;
+  }
+  .stageBtn.cleared{background:var(--gold); box-shadow:0 4px 0 #C98F1F; color:#5A3D00; font-size:13px;}
+  .stageBtn.locked{background:rgba(0,0,0,.08); box-shadow:none; color:rgba(0,0,0,.35); font-size:22px; cursor:default;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="hud">
+    <button class="iconBtn" id="homeBtn">⬅</button>
+    <button class="iconBtn" id="bgmBtn">🎵</button>
+    <span id="progress">0 / 16</span>
+  </div>
+
+  <div id="boardWrap"><div id="board"></div></div>
+
+  <div id="bottom">
+    <div class="prompt">
+      <span class="promptEmoji" id="promptEmoji"></span>
+      <span class="promptWord" id="promptWord"></span>
+      <button class="speakBtn" id="wordSpeak">🔊</button>
+    </div>
+    <div class="padMsg" id="padMsg">いろを えらんで スタート!</div>
+    <div class="choices" id="choices"></div>
+  </div>
+
+  <div class="overlay show" id="startOv">
+    <div class="huge">🎨</div>
+    <h2>ぬりぬり ひらがな</h2>
+    <p>いっしょに ぬりえ する 子を えらんでね!<br>もんだいに こたえて、ボードを ぜんぶ ぬろう!</p>
+    <div class="mascots" id="mascots"></div>
+    <button id="startBtn">▶ ステージを えらぶ</button>
+  </div>
+
+  <div class="overlay" id="stageSelOv">
+    <h2>ステージを えらぼう</h2>
+    <div class="stageGrid" id="stageGrid"></div>
+    <button class="sub" id="stageSelHomeBtn">🏠 ホームへ</button>
+  </div>
+
+  <div class="overlay" id="clearOv">
+    <div class="huge">🎉</div>
+    <h2 id="clearTitle">ぬりえ かんせい!</h2>
+    <p id="clearSummary"></p>
+    <button id="nextStageBtn">つぎの ステージへ ▶</button>
+    <button class="sub" id="againBtn">🎨 このステージを もういちど</button>
+    <button class="sub" id="clearStageSelBtn">🗺 ステージせんたく</button>
+    <button class="sub" id="clearHomeBtn">🏠 ホームへ</button>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const rand = a => a[Math.floor(Math.random()*a.length)];
+
+function speak(text, rate){
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang="ja-JP"; u.rate = rate || .9;
+    u.onstart = ()=>setBgmDuck(true);
+    u.onend = ()=>setBgmDuck(false);
+    u.onerror = ()=>setBgmDuck(false);
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ====== 単語バンク(絵つき) ====== */
+const WORDS = [
+ {w:"りんご",e:"🍎"},{w:"ねこ",e:"🐱"},{w:"いぬ",e:"🐶"},{w:"ぱんだ",e:"🐼"},
+ {w:"たこ",e:"🐙"},{w:"すいか",e:"🍉"},{w:"ばなな",e:"🍌"},{w:"ほし",e:"⭐"},
+ {w:"つき",e:"🌙"},{w:"さかな",e:"🐟"},{w:"くるま",e:"🚗"},{w:"かさ",e:"☂️"},
+ {w:"ふね",e:"⛵"},{w:"きのこ",e:"🍄"},{w:"おにぎり",e:"🍙"},{w:"たまご",e:"🥚"},
+ {w:"とり",e:"🐦"},{w:"うみ",e:"🌊"},{w:"やま",e:"⛰️"},{w:"はな",e:"🌸"},
+ {w:"かに",e:"🦀"},{w:"うさぎ",e:"🐰"},{w:"ぞう",e:"🐘"},{w:"きりん",e:"🦒"},
+ {w:"かえる",e:"🐸"},{w:"くじら",e:"🐳"},{w:"ねずみ",e:"🐭"},{w:"らいおん",e:"🦁"}
+];
+/* ====== ステージ表(1レベル=1ルール固定。「ひらがな シューター」と共通の進捗) ====== */
+const STAGES = [
+ {id:"1-1", pool:"len2", blank:"first"},
+ {id:"1-2", pool:"len2", blank:"last"},
+ {id:"1-3", pool:"len3", blank:"first"},
+ {id:"1-4", pool:"len3", blank:"last"},
+ {id:"2-1", pool:"len3", blank:"mid"},
+ {id:"2-2", pool:"all",  blank:"random"}
+];
+function poolFor(key){
+  if(key==="len2") return WORDS.filter(w=>w.w.length===2);
+  if(key==="len3") return WORDS.filter(w=>w.w.length===3);
+  return WORDS;
+}
+function blankIndexFor(word, mode){
+  if(mode==="first") return 0;
+  if(mode==="last") return word.length-1;
+  if(mode==="mid") return Math.floor(word.length/2);
+  return Math.floor(Math.random()*word.length);
+}
+const PROGRESS_KEY = "hiragana_stage_progress_v1";
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {clearedCount:0};
+}
+function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
+function markCleared(idx){
+  const p=loadProgress();
+  if(idx+1 > p.clearedCount){ p.clearedCount = idx+1; saveProgress(p); }
+}
+
+/* ====== マスコット(いろの キャラクター) ====== */
+function mascotFace(hex){
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="54" r="38" fill="${hex}" stroke="#2b2b3a" stroke-width="3"/>
+    <circle cx="33" cy="42" r="8" fill="rgba(255,255,255,.4)"/>
+    <ellipse cx="34" cy="66" rx="8" ry="5" fill="rgba(255,255,255,.35)"/>
+    <ellipse cx="66" cy="66" rx="8" ry="5" fill="rgba(255,255,255,.35)"/>
+    <ellipse cx="38" cy="56" rx="6" ry="8" fill="#fff"/>
+    <ellipse cx="62" cy="56" rx="6" ry="8" fill="#fff"/>
+    <circle cx="39" cy="58" r="3" fill="#232333"/>
+    <circle cx="63" cy="58" r="3" fill="#232333"/>
+    <path d="M42 72 Q50 78 58 72" stroke="#2b2b3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+const INK_COLORS = [
+ {id:"pink",name:"いちごちゃん",hex:"#FF6FA0"},
+ {id:"orange",name:"みかんくん",hex:"#FF9B4D"},
+ {id:"yellow",name:"ひまわりさん",hex:"#FFD24D"},
+ {id:"green",name:"めろんくん",hex:"#4FBF8B"},
+ {id:"blue",name:"そらくん",hex:"#4DB6E8"},
+ {id:"purple",name:"ぶどうちゃん",hex:"#9B6FD1"}
+];
+
+const BOARD_SIZE = 16;
+const G = { ink:INK_COLORS[0], stageIdx:0, stageDef:null, painted:0, tiles:[], current:null };
+
+/* ====== こうかおん ====== */
+let audioCtx=null;
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq,dur,type,vol,delay){
+  try{
+    const ctx=getCtx();
+    if(ctx.state==="suspended") ctx.resume();
+    const t0=ctx.currentTime+(delay||0);
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type=type||"sine"; osc.frequency.setValueAtTime(freq,t0);
+    gain.gain.setValueAtTime(0,t0);
+    gain.gain.linearRampToValueAtTime(vol||.25,t0+.02);
+    gain.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0); osc.stop(t0+dur+.03);
+  }catch(e){}
+}
+function sfxCorrect(){ beep(880,.12,"sine",.25); beep(1318.5,.18,"sine",.22,.1); }
+function sfxMiss(){ beep(220,.18,"sawtooth",.2); beep(160,.24,"sawtooth",.18,.08); }
+function sfxClear(){ beep(523.25,.14,"square",.24,0); beep(659.25,.14,"square",.24,.13); beep(784,.14,"square",.24,.26); beep(1046.5,.3,"square",.26,.39); }
+
+/* ====== BGM(8bit・あかるい ぬりえテーマ, オリジナル曲) ====== */
+const BGM_BPM = 130;
+const STEP_SEC = 60/BGM_BPM/4;
+const BGM_STEPS = 32;
+const mtof = m => m ? 440*Math.pow(2,(m-69)/12) : 0;
+const BGM_MELODY = [60,0,64,0, 67,0,64,0, 65,0,69,0, 67,0,64,0,
+                     62,0,65,0, 69,0,65,0, 67,0,72,0, 69,0,67,0];
+const BGM_BASS   = [48,48,60,48, 48,48,60,48, 48,48,60,48, 48,48,60,48,
+                     53,53,65,53, 53,53,65,53, 55,55,67,55, 55,55,67,55];
+const BGM_KICK   = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+const BGM_HAT    = [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0, 0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0];
+const BGM_SNARE  = [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0];
+
+let bgmOn=true, bgmStep=0, bgmNextTime=0, bgmTimer=null, bgmMasterGain=null;
+
+function getBgmGain(){
+  if(!bgmMasterGain){
+    bgmMasterGain = getCtx().createGain();
+    bgmMasterGain.gain.value = 1;
+    bgmMasterGain.connect(getCtx().destination);
+  }
+  return bgmMasterGain;
+}
+function setBgmDuck(active){
+  try{
+    const g = getBgmGain(), ctx = getCtx(), now = ctx.currentTime;
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.linearRampToValueAtTime(active ? .22 : 1, now + .15);
+  }catch(e){}
+}
+function bgmTone(freq,t,dur,type,peak,attack){
+  if(!freq) return;
+  const ctx=getCtx();
+  const osc=ctx.createOscillator(), gain=ctx.createGain();
+  osc.type=type; osc.frequency.setValueAtTime(freq,t);
+  gain.gain.setValueAtTime(0,t);
+  gain.gain.linearRampToValueAtTime(peak,t+attack);
+  gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  osc.connect(gain).connect(getBgmGain());
+  osc.start(t); osc.stop(t+dur+.02);
+}
+function bgmNoise(t,dur,filterType,filterFreq,peak){
+  const ctx=getCtx();
+  const buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+  const noise=ctx.createBufferSource(); noise.buffer=buf;
+  const filt=ctx.createBiquadFilter(); filt.type=filterType; filt.frequency.value=filterFreq;
+  const gain=ctx.createGain();
+  gain.gain.setValueAtTime(peak,t);
+  gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  noise.connect(filt).connect(gain).connect(getBgmGain());
+  noise.start(t); noise.stop(t+dur+.02);
+}
+function bgmSchedule(){
+  const ctx=getCtx();
+  while(bgmNextTime < ctx.currentTime + .15){
+    const i = bgmStep % BGM_STEPS;
+    if(bgmOn){
+      bgmTone(mtof(BGM_MELODY[i]), bgmNextTime, STEP_SEC*1.8, "square", .09, .005);
+      bgmTone(mtof(BGM_BASS[i]),   bgmNextTime, STEP_SEC*.9,  "triangle", .15, .003);
+      if(BGM_KICK[i])  bgmTone(90, bgmNextTime, .13, "sine", .3, .002);
+      if(BGM_HAT[i])   bgmNoise(bgmNextTime, .04, "highpass", 7000, .04);
+      if(BGM_SNARE[i]) bgmNoise(bgmNextTime, .07, "bandpass", 1800, .1);
+    }
+    bgmNextTime += STEP_SEC;
+    bgmStep++;
+  }
+}
+function unlockAudioContext(ctx){
+  try{
+    const buf=ctx.createBuffer(1,1,22050);
+    const src=ctx.createBufferSource();
+    src.buffer=buf; src.connect(ctx.destination); src.start(0);
+  }catch(e){}
+}
+function startBgm(){
+  const ctx=getCtx();
+  unlockAudioContext(ctx);
+  const begin=()=>{
+    if(bgmTimer) return;
+    bgmStep=0; bgmNextTime=ctx.currentTime+.05;
+    bgmSchedule();
+    bgmTimer=setInterval(bgmSchedule,50);
+  };
+  if(ctx.state!=="running"){
+    let started=false;
+    const go=()=>{ if(started) return; started=true; begin(); };
+    ctx.resume().then(go).catch(go);
+    setTimeout(go,300);
+  }else{
+    begin();
+  }
+}
+function toggleBgm(){
+  bgmOn=!bgmOn;
+  $("bgmBtn").textContent = bgmOn?"🎵":"🔇";
+}
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden && bgmTimer){ try{ getCtx().resume(); }catch(e){} }
+});
+
+/* ====== ボード ====== */
+function buildBoard(){
+  const board=$("board"); board.innerHTML=""; G.tiles=[];
+  for(let i=0;i<BOARD_SIZE;i++){
+    const el=document.createElement("div");
+    el.className="tile";
+    board.appendChild(el);
+    G.tiles.push({el, painted:false});
+  }
+}
+function paintRandomTile(){
+  const empties=G.tiles.filter(t=>!t.painted);
+  if(!empties.length) return;
+  const t=rand(empties);
+  t.painted=true; G.painted++;
+  t.el.style.background=G.ink.hex;
+  t.el.classList.remove("pop"); void t.el.offsetWidth; t.el.classList.add("pop");
+  updateProgress();
+  if(G.painted>=BOARD_SIZE){ onClear(); return; }
+  setTimeout(nextRound, 850);
+}
+function updateProgress(){ $("progress").textContent = G.painted+" / "+BOARD_SIZE; }
+
+/* ====== もんだい ====== */
+function nextRound(){
+  const item=rand(poolFor(G.stageDef.pool));
+  const blankIdx=blankIndexFor(item.w, G.stageDef.blank);
+  G.current={word:item.w, emoji:item.e, blankIdx, answer:item.w[blankIdx]};
+  renderPrompt();
+  makeChoices();
+  speak(item.w);
+  setPadMsg("どの もじが はいるかな?","");
+}
+function renderPrompt(){
+  const C=G.current;
+  $("promptEmoji").textContent=C.emoji;
+  $("promptWord").innerHTML=[...C.word].map((ch,i)=> i===C.blankIdx?'<span class="blankCh">?</span>':ch).join("");
+}
+function makeChoices(){
+  const correct=G.current.answer;
+  const pool=[...new Set(WORDS.flatMap(w=>[...w.w]))].filter(c=>c!==correct);
+  const opts=[correct];
+  while(opts.length<3){ const c=rand(pool); if(!opts.includes(c)) opts.push(c); }
+  opts.sort(()=>Math.random()-.5);
+  const box=$("choices"); box.innerHTML="";
+  opts.forEach(ch=>{
+    const b=document.createElement("button");
+    b.className="choiceBtn"; b.textContent=ch;
+    b.onclick=()=>chooseChar(ch,b);
+    box.appendChild(b);
+  });
+}
+function chooseChar(ch, btn){
+  if(ch===G.current.answer){
+    sfxCorrect();
+    setPadMsg(`「${G.current.word}」せいかい! いろが ふえたよ`,"good");
+    document.querySelectorAll(".choiceBtn").forEach(b=>b.disabled=true);
+    paintRandomTile();
+  }else{
+    sfxMiss();
+    btn.classList.add("wrong");
+    setTimeout(()=>btn.classList.remove("wrong"),350);
+    setPadMsg("おしい! もういちど えらんでみよう","retry");
+  }
+}
+function setPadMsg(t,cls){ const m=$("padMsg"); m.textContent=t; m.className="padMsg "+(cls||""); }
+$("wordSpeak").onclick=()=>{ if(G.current) speak(G.current.word); };
+
+function onClear(){
+  markCleared(G.stageIdx);
+  const isLast = G.stageIdx+1 >= STAGES.length;
+  $("nextStageBtn").style.display = isLast ? "none" : "";
+  $("clearTitle").textContent = isLast ? "ぜんぶ クリア!" : "ぬりえ かんせい!";
+  $("clearSummary").textContent = isLast
+    ? `ぜんぶの ステージを クリアしたよ!すごい!`
+    : `ステージ ${G.stageDef.id}、${BOARD_SIZE}マス きれいに ぬれたね!`;
+  $("clearOv").classList.add("show");
+  sfxClear();
+  speak(isLast ? "ぜんぶの ステージを クリアしたよ!すごい!" : "ぬりえ かんせい!おめでとう!");
+}
+
+/* ====== いろ(マスコット)えらび ====== */
+function renderMascots(){
+  const box=$("mascots"); box.innerHTML="";
+  INK_COLORS.forEach((c,i)=>{
+    const b=document.createElement("button");
+    b.className="mascotCard"+(c.id===G.ink.id?" sel":"");
+    b.innerHTML = mascotFace(c.hex) + `<span class="mName">${c.name}</span>`;
+    b.onclick=()=>{
+      G.ink=c;
+      document.querySelectorAll(".mascotCard").forEach(s=>s.classList.remove("sel"));
+      b.classList.add("sel");
+    };
+    box.appendChild(b);
+  });
+}
+renderMascots();
+
+/* ====== ステージ せんたく ====== */
+function renderStageSelect(){
+  const box=$("stageGrid"); box.innerHTML="";
+  const prog=loadProgress();
+  STAGES.forEach((s,i)=>{
+    const unlocked = i<=prog.clearedCount;
+    const cleared = i<prog.clearedCount;
+    const b=document.createElement("button");
+    b.className="stageBtn"+(cleared?" cleared":(unlocked?"":" locked"));
+    b.innerHTML = unlocked ? (cleared?"⭐<br>"+s.id : s.id) : "🔒";
+    b.disabled = !unlocked;
+    if(unlocked) b.onclick=()=>startStage(i);
+    box.appendChild(b);
+  });
+}
+function startStage(idx){
+  G.stageIdx=idx; G.stageDef=STAGES[idx]; G.painted=0;
+  document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("show"));
+  startBgm();
+  buildBoard(); updateProgress();
+  nextRound();
+}
+function goToStageSelect(){
+  document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("show"));
+  renderStageSelect();
+  $("stageSelOv").classList.add("show");
+}
+
+$("startBtn").onclick=()=>{
+  try{ getCtx().resume(); }catch(e){}
+  $("startOv").classList.remove("show");
+  goToStageSelect();
+};
+$("nextStageBtn").onclick=()=>{ startStage(G.stageIdx+1); };
+$("againBtn").onclick=()=>{ startStage(G.stageIdx); };
+$("clearStageSelBtn").onclick=goToStageSelect;
+$("stageSelHomeBtn").onclick=()=>{ location.href="index.html"; };
+$("bgmBtn").onclick=toggleBgm;
+$("homeBtn").onclick=()=>{ location.href="index.html"; };
+$("clearHomeBtn").onclick=()=>{ location.href="index.html"; };
+</script>
+</body>
+</html>
