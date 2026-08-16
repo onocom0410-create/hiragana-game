@@ -466,13 +466,36 @@ function bgmSchedule(){
     bgmStep++;
   }
 }
-function startBgm(){
-  try{ getCtx().resume(); }catch(e){}
-  if(bgmTimer) return;
-  bgmStep=0; bgmNextTime=getCtx().currentTime+.05;
-  bgmSchedule();
-  bgmTimer=setInterval(bgmSchedule,50);
+function unlockAudioContext(ctx){
+  try{
+    // iOSは resume() だけだと解除に失敗することがあるため、
+    // 同じジェスチャー内で無音バッファを即再生して確実にアンロックする
+    const buf=ctx.createBuffer(1,1,22050);
+    const src=ctx.createBufferSource();
+    src.buffer=buf; src.connect(ctx.destination); src.start(0);
+  }catch(e){}
 }
+function startBgm(){
+  const ctx=getCtx();
+  unlockAudioContext(ctx);
+  const begin=()=>{
+    if(bgmTimer) return;
+    bgmStep=0; bgmNextTime=ctx.currentTime+.05;
+    bgmSchedule();
+    bgmTimer=setInterval(bgmSchedule,50);
+  };
+  if(ctx.state!=="running"){
+    let started=false;
+    const go=()=>{ if(started) return; started=true; begin(); };
+    ctx.resume().then(go).catch(go);
+    setTimeout(go,300); // resume()が解決しない端末向けの保険
+  }else{
+    begin();
+  }
+}
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden && bgmTimer){ try{ getCtx().resume(); }catch(e){} }
+});
 function toggleBgm(){
   bgmOn=!bgmOn;
   $("bgmBtn").textContent = bgmOn?"🎵":"🔇";
