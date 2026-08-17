@@ -193,7 +193,15 @@ const WORDS = [
  {w:"ふね",e:"⛵"},{w:"きのこ",e:"🍄"},{w:"おにぎり",e:"🍙"},{w:"たまご",e:"🥚"},
  {w:"とり",e:"🐦"},{w:"うみ",e:"🌊"},{w:"やま",e:"⛰️"},{w:"はな",e:"🌸"},
  {w:"かに",e:"🦀"},{w:"うさぎ",e:"🐰"},{w:"ぞう",e:"🐘"},{w:"きりん",e:"🦒"},
- {w:"かえる",e:"🐸"},{w:"くじら",e:"🐳"},{w:"ねずみ",e:"🐭"},{w:"らいおん",e:"🦁"}
+ {w:"かえる",e:"🐸"},{w:"くじら",e:"🐳"},{w:"ねずみ",e:"🐭"},{w:"らいおん",e:"🦁"},
+ {w:"あり",e:"🐜"},{w:"けむし",e:"🐛"},{w:"せみ",e:"🦗"},{w:"そら",e:"🌤️"},
+ {w:"ちず",e:"🗺️"},{w:"てがみ",e:"✉️"},{w:"ひよこ",e:"🐤"},{w:"へび",e:"🐍"},
+ {w:"むぎ",e:"🌾"},{w:"めがね",e:"👓"},{w:"もも",e:"🍑"},{w:"ゆき",e:"❄️"},
+ {w:"よる",e:"🌃"},{w:"れもん",e:"🍋"},{w:"ろうそく",e:"🕯️"},{w:"わに",e:"🐊"},
+ {w:"かがみ",e:"🪞"},{w:"かぐ",e:"🪑"},{w:"げた",e:"👡"},{w:"ひざ",e:"🦵"},
+ {w:"かぜ",e:"💨"},{w:"でんわ",e:"☎️"},{w:"どんぐり",e:"🌰"},{w:"えび",e:"🦐"},
+ {w:"ぶた",e:"🐷"},{w:"かべ",e:"🧱"},{w:"ぼうし",e:"👒"},{w:"えんぴつ",e:"✏️"},
+ {w:"てんぷら",e:"🍤"},{w:"ぺんぎん",e:"🐧"},{w:"たんぽぽ",e:"🌼"}
 ];
 /* ====== ステージ表(1レベル=1ルール固定。「ひらがな シューター」と共通の進捗) ====== */
 const STAGES = [
@@ -245,6 +253,47 @@ function addXp(amount){
   saveCollection(c);
   G.xp = c.xp;
   return c.xp;
+}
+
+/* ====== もじ べつ せいせき(全ゲーム共通・永続。マイプロフィールの ずかんに つかう) ====== */
+const CHAR_STATS_KEY = "hiragana_char_stats_v1";
+function loadCharStats(){
+  try{
+    const raw = localStorage.getItem(CHAR_STATS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {};
+}
+function saveCharStats(s){ try{ localStorage.setItem(CHAR_STATS_KEY, JSON.stringify(s)); }catch(e){} }
+function recordCharResult(ch, gotFirstTry){
+  const stats=loadCharStats();
+  if(!stats[ch]) stats[ch]={rounds:0, firstTryCorrect:0};
+  stats[ch].rounds++;
+  if(gotFirstTry) stats[ch].firstTryCorrect++;
+  saveCharStats(stats);
+}
+function charAccuracy(ch){
+  const stats=loadCharStats();
+  const s=stats[ch];
+  return (s && s.rounds>0) ? s.firstTryCorrect/s.rounds : .5;
+}
+function pickSmartWord(pool){
+  const base = pool.filter(w=>w.w!==G.lastWord);
+  const list = base.length ? base : pool;
+  const weighted = list.map(item=>{
+    const ch = item.w[blankIndexFor(item.w, G.stageDef.blank)];
+    let weight = 1 + (1-charAccuracy(ch))*2;
+    if(G.recentChars && G.recentChars.includes(ch)) weight *= .15;
+    return {item, ch, weight};
+  });
+  const total = weighted.reduce((s,w)=>s+w.weight,0);
+  let r = Math.random()*total;
+  for(const w of weighted){ r-=w.weight; if(r<=0){ pickedFollowUp(w.ch); return w.item; } }
+  const last=weighted[weighted.length-1]; pickedFollowUp(last.ch); return last.item;
+}
+function pickedFollowUp(ch){
+  G.recentChars = G.recentChars || [];
+  G.recentChars = [...G.recentChars.slice(-2), ch];
 }
 
 /* ====== タイムアタック(のんびりモードの じこ きろく) ====== */
@@ -365,7 +414,8 @@ const BOARD_SIZE = 16;
 const G = {
   ink:INK_COLORS[0], stageIdx:0, stageDef:null, mode:"calm", painted:0, tiles:[], current:null,
   enemyPainted:0, rival:null, battleRunning:false, battleTimeLeft:60, enemyTimer:null, battleTimer:null,
-  mistakes:0, stageStartTime:0, xp:loadCollection().xp
+  mistakes:0, stageStartTime:0, xp:loadCollection().xp,
+  recentChars:[], roundHadMistake:false
 };
 
 /* ====== こうかおん ====== */
@@ -594,15 +644,10 @@ function endBattle(){
 }
 
 /* ====== もんだい ====== */
-function pickNonRepeating(pool){
-  if(pool.length<=1) return rand(pool);
-  let item;
-  do{ item = rand(pool); }while(item.w===G.lastWord);
-  return item;
-}
 function nextRound(){
-  const item=pickNonRepeating(poolFor(G.stageDef.pool));
+  const item=pickSmartWord(poolFor(G.stageDef.pool));
   G.lastWord=item.w;
+  G.roundHadMistake=false;
   const blankIdx=blankIndexFor(item.w, G.stageDef.blank);
   G.current={word:item.w, emoji:item.e, blankIdx, answer:item.w[blankIdx]};
   renderPrompt();
@@ -632,11 +677,13 @@ function makeChoices(){
 function chooseChar(ch, btn){
   if(ch===G.current.answer){
     sfxCorrect();
+    recordCharResult(ch, !G.roundHadMistake);
     setPadMsg(`「${G.current.word}」せいかい! いろが ふえたよ`,"good");
     document.querySelectorAll(".choiceBtn").forEach(b=>b.disabled=true);
     paintRandomTile();
   }else{
     sfxMiss();
+    G.roundHadMistake=true;
     btn.classList.add("wrong");
     setTimeout(()=>btn.classList.remove("wrong"),350);
     if(G.mode==="battle" && G.battleRunning){
@@ -720,7 +767,7 @@ function openModeSelect(idx){
 }
 function startStage(idx, mode){
   stopBattleTimers();
-  G.stageIdx=idx; G.stageDef=STAGES[idx]; G.painted=0; G.mode=mode||"calm"; G.lastWord=null;
+  G.stageIdx=idx; G.stageDef=STAGES[idx]; G.painted=0; G.mode=mode||"calm"; G.lastWord=null; G.recentChars=[];
   document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("show"));
   startBgm();
   buildBoard();

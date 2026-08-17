@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ひみつきち</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#33334D; --accent:#FF7B54; --ok:#5FAE7C; --gold:#FFC24B; }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;}
+  body{
+    font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+    background:linear-gradient(#1B2A4A,#31456E 55%,#4E6285);
+    color:#fff; min-height:100vh; padding:16px 16px 40px;
+  }
+  #app{max-width:480px; margin:0 auto;}
+  .topRow{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .iconBtn{border:none; background:rgba(255,255,255,.15); color:#fff; border-radius:12px;
+    font-family:inherit; font-weight:900; font-size:13px; padding:8px 12px; cursor:pointer;}
+  h1{font-size:20px; margin:0;}
+  .card{background:rgba(255,255,255,.08); border-radius:18px; padding:14px 16px; margin-bottom:16px;}
+  .card h2{font-size:15px; margin:0 0 10px;}
+  .summaryGrid{display:flex; justify-content:space-around; text-align:center;}
+  .summaryGrid .num{font-size:22px; font-weight:900; color:var(--gold);}
+  .summaryGrid .lbl{font-size:11px; opacity:.85; margin-top:2px;}
+
+  .gojuonRow{display:grid; grid-template-columns:20px repeat(5,1fr); gap:5px; margin-bottom:5px; align-items:center;}
+  .rowLabel{font-size:11px; text-align:center; opacity:.6; font-weight:900;}
+  .dexCard{
+    aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; font-weight:900;
+  }
+  .dexCard .ch{font-size:18px;}
+  .dexCard .frac{font-size:8px; margin-top:1px;}
+  .dexCard.new{background:rgba(255,255,255,.08); color:rgba(255,255,255,.35);}
+  .dexCard.training{background:#5A3D1E; color:#FFC98A;}
+  .dexCard.master{background:#6B5300; color:#FFE9A8;}
+  .dexCard.absent{background:transparent;}
+  .dexCard.blank{visibility:hidden;}
+  .dakuonTitle{font-size:12px; opacity:.75; font-weight:900; margin:12px 0 6px;}
+  .dexLegend{display:flex; gap:14px; font-size:11px; margin-top:10px; flex-wrap:wrap;}
+  .dexLegend span{display:flex; align-items:center; gap:4px;}
+  .dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
+
+  .collGrid{display:flex; flex-wrap:wrap; gap:10px;}
+  .collItem{background:rgba(255,255,255,.08); border-radius:14px; padding:8px 10px; font-size:12px; font-weight:700; text-align:center; min-width:70px;}
+  .collItem b{font-size:24px; display:block;}
+  .collItem.locked{opacity:.35;}
+
+  .stageRow{display:flex; align-items:center; gap:10px; padding:6px 0; font-size:13px; font-weight:700;}
+  .stageBadge{width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:13px; flex-shrink:0;}
+  .stageBadge.cleared{background:var(--gold); color:#5A3D00;}
+  .stageBadge.locked{background:rgba(255,255,255,.1); color:rgba(255,255,255,.4);}
+  .bar{flex:1; height:8px; border-radius:4px; background:rgba(255,255,255,.12); overflow:hidden;}
+  .bar i{display:block; height:100%; background:var(--ok);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topRow">
+    <button class="iconBtn" id="homeBtn">⬅ もどる</button>
+    <h1>🕵️ ひみつきち</h1>
+  </div>
+
+  <div class="card">
+    <div class="summaryGrid">
+      <div><div class="num" id="sumXp">0</div><div class="lbl">⭐ ぜんぶの ほし</div></div>
+      <div><div class="num" id="sumAcc">-</div><div class="lbl">ぜんたいの せいかいりつ</div></div>
+      <div><div class="num" id="sumStage">0/0</div><div class="lbl">クリアした ステージ</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📖 ひらがな ずかん</h2>
+    <div id="dexGrid"></div>
+    <div class="dexLegend">
+      <span><i class="dot" style="background:#6B5300"></i>⭐ とくい</span>
+      <span><i class="dot" style="background:#5A3D1E"></i>🔥 とっくんちゅう</span>
+      <span><i class="dot" style="background:rgba(255,255,255,.2)"></i>❔ みはっけん</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎰 ガチャ コレクション</h2>
+    <div class="collGrid" id="gemGrid"></div>
+    <div class="collGrid" id="equipGrid" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>🗺 ステージ しんちょく</h2>
+    <div id="stageList"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ====== 単語バンク(文字図鑑の もとデータ) ====== */
+const WORDS = [
+ {w:"りんご",e:"🍎"},{w:"ねこ",e:"🐱"},{w:"いぬ",e:"🐶"},{w:"ぱんだ",e:"🐼"},
+ {w:"たこ",e:"🐙"},{w:"すいか",e:"🍉"},{w:"ばなな",e:"🍌"},{w:"ほし",e:"⭐"},
+ {w:"つき",e:"🌙"},{w:"さかな",e:"🐟"},{w:"くるま",e:"🚗"},{w:"かさ",e:"☂️"},
+ {w:"ふね",e:"⛵"},{w:"きのこ",e:"🍄"},{w:"おにぎり",e:"🍙"},{w:"たまご",e:"🥚"},
+ {w:"とり",e:"🐦"},{w:"うみ",e:"🌊"},{w:"やま",e:"⛰️"},{w:"はな",e:"🌸"},
+ {w:"かに",e:"🦀"},{w:"うさぎ",e:"🐰"},{w:"ぞう",e:"🐘"},{w:"きりん",e:"🦒"},
+ {w:"かえる",e:"🐸"},{w:"くじら",e:"🐳"},{w:"ねずみ",e:"🐭"},{w:"らいおん",e:"🦁"},
+ {w:"あり",e:"🐜"},{w:"けむし",e:"🐛"},{w:"せみ",e:"🦗"},{w:"そら",e:"🌤️"},
+ {w:"ちず",e:"🗺️"},{w:"てがみ",e:"✉️"},{w:"ひよこ",e:"🐤"},{w:"へび",e:"🐍"},
+ {w:"むぎ",e:"🌾"},{w:"めがね",e:"👓"},{w:"もも",e:"🍑"},{w:"ゆき",e:"❄️"},
+ {w:"よる",e:"🌃"},{w:"れもん",e:"🍋"},{w:"ろうそく",e:"🕯️"},{w:"わに",e:"🐊"},
+ {w:"かがみ",e:"🪞"},{w:"かぐ",e:"🪑"},{w:"げた",e:"👡"},{w:"ひざ",e:"🦵"},
+ {w:"かぜ",e:"💨"},{w:"でんわ",e:"☎️"},{w:"どんぐり",e:"🌰"},{w:"えび",e:"🦐"},
+ {w:"ぶた",e:"🐷"},{w:"かべ",e:"🧱"},{w:"ぼうし",e:"👒"},{w:"えんぴつ",e:"✏️"},
+ {w:"てんぷら",e:"🍤"},{w:"ぺんぎん",e:"🐧"},{w:"たんぽぽ",e:"🌼"}
+];
+const DEX_CHARS = new Set(WORDS.flatMap(w=>[...w.w]));
+
+/* ====== ごじゅうおんひょう(行=しいん、段=ぼいん の いちを こてい) ====== */
+const GOJUON_ROWS = [
+ {label:"あ", chars:["あ","い","う","え","お"]},
+ {label:"か", chars:["か","き","く","け","こ"]},
+ {label:"さ", chars:["さ","し","す","せ","そ"]},
+ {label:"た", chars:["た","ち","つ","て","と"]},
+ {label:"な", chars:["な","に","ぬ","ね","の"]},
+ {label:"は", chars:["は","ひ","ふ","へ","ほ"]},
+ {label:"ま", chars:["ま","み","む","め","も"]},
+ {label:"や", chars:["や",null,"ゆ",null,"よ"]},
+ {label:"ら", chars:["ら","り","る","れ","ろ"]},
+ {label:"わ", chars:["わ",null,null,null,"を"]},
+ {label:"ん", chars:["ん",null,null,null,null]}
+];
+const DAKUON_ROWS = [
+ {label:"が", chars:["が","ぎ","ぐ","げ","ご"]},
+ {label:"ざ", chars:["ざ","じ","ず","ぜ","ぞ"]},
+ {label:"だ", chars:["だ","ぢ","づ","で","ど"]},
+ {label:"ば", chars:["ば","び","ぶ","べ","ぼ"]},
+ {label:"ぱ", chars:["ぱ","ぴ","ぷ","ぺ","ぽ"]}
+];
+
+/* ====== ステージ表(他ゲームと同じ) ====== */
+const STAGES = [
+ {id:"1-1"}, {id:"1-2"}, {id:"1-3"}, {id:"1-4"}, {id:"2-1"}, {id:"2-2"}
+];
+
+const GEMS = [
+ {id:"r",icon:"🔴",name:"あかだま"},{id:"o",icon:"🟠",name:"だいだいだま"},
+ {id:"y",icon:"🟡",name:"きいろだま"},{id:"g",icon:"🟢",name:"みどりだま"},
+ {id:"b",icon:"🔵",name:"あおだま"},{id:"p",icon:"🟣",name:"むらさきだま"}
+];
+const EQUIPS = [
+ {id:"pen",icon:"⚔️",name:"つよい えんぴつ"},
+ {id:"shield",icon:"🛡️",name:"まもりの たて"},
+ {id:"charm",icon:"🌟",name:"ほしの おまもり"}
+];
+
+/* ====== 保存データ の よみこみ ====== */
+function loadJSON(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return fallback;
+}
+const progress = loadJSON("hiragana_stage_progress_v1", {clearedCount:0});
+const collection = loadJSON("hiragana_collection_v1", {xp:0, gems:{}, equips:{pen:0,shield:0,charm:0}});
+const charStats = loadJSON("hiragana_char_stats_v1", {});
+
+/* ====== サマリー ====== */
+$("sumXp").textContent = collection.xp;
+let totalRounds=0, totalCorrect=0;
+Object.values(charStats).forEach(s=>{ totalRounds+=s.rounds; totalCorrect+=s.firstTryCorrect; });
+$("sumAcc").textContent = totalRounds ? Math.round(totalCorrect/totalRounds*100)+"%" : "-";
+$("sumStage").textContent = Math.min(progress.clearedCount, STAGES.length) + "/" + STAGES.length;
+
+/* ====== ひらがな ずかん ====== */
+function masteryTier(stat){
+  if(!stat || stat.rounds===0) return "new";
+  const acc = stat.firstTryCorrect/stat.rounds;
+  if(stat.rounds>=3 && acc>=0.7) return "master";
+  return "training";
+}
+function dexCardHTML(ch){
+  if(!ch) return '<div class="dexCard blank"></div>';
+  if(!DEX_CHARS.has(ch)) return '<div class="dexCard absent"></div>';
+  const stat = charStats[ch];
+  const tier = masteryTier(stat);
+  const frac = stat ? `${stat.firstTryCorrect}/${stat.rounds}` : "";
+  return `<div class="dexCard ${tier}"><span class="ch">${tier==="new"?"❔":ch}</span><span class="frac">${frac}</span></div>`;
+}
+function renderGojuonTable(rows){
+  return rows.map(row=>
+    `<div class="gojuonRow"><div class="rowLabel">${row.label}</div>${row.chars.map(dexCardHTML).join("")}</div>`
+  ).join("");
+}
+const dexBox = $("dexGrid");
+dexBox.innerHTML = renderGojuonTable(GOJUON_ROWS)
+  + '<div class="dakuonTitle">◯ だくてん(てんてん)</div>'
+  + renderGojuonTable(DAKUON_ROWS);
+
+/* ====== ガチャ コレクション ====== */
+const gemBox = $("gemGrid");
+GEMS.forEach(g=>{
+  const got = !!collection.gems[g.id];
+  const d = document.createElement("div");
+  d.className = "collItem"+(got?"":" locked");
+  d.innerHTML = `<b>${got?g.icon:"❔"}</b>${g.name}`;
+  gemBox.appendChild(d);
+});
+const equipBox = $("equipGrid");
+EQUIPS.forEach(eq=>{
+  const count = collection.equips[eq.id]||0;
+  const d = document.createElement("div");
+  d.className = "collItem"+(count?"":" locked");
+  d.innerHTML = `<b>${eq.icon}</b>${eq.name}${count?" ×"+count:""}`;
+  equipBox.appendChild(d);
+});
+
+/* ====== ステージ しんちょく ====== */
+const stageBox = $("stageList");
+STAGES.forEach((s,i)=>{
+  const cleared = i < progress.clearedCount;
+  const unlocked = i <= progress.clearedCount;
+  const row = document.createElement("div");
+  row.className = "stageRow";
+  row.innerHTML = `
+    <div class="stageBadge ${cleared?"cleared":"locked"}">${cleared?"⭐":(unlocked?s.id:"🔒")}</div>
+    <div style="width:34px;">${s.id}</div>
+    <div class="bar"><i style="width:${cleared?100:0}%"></i></div>`;
+  stageBox.appendChild(row);
+});
+
+$("homeBtn").onclick=()=>{ location.href="index.html"; };
+</script>
+</body>
+</html>
