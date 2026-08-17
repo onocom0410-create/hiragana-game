@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>きいて かこう</title>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
 <style>
   :root{
     --paper:#EDF4EA; --card:#FFFFFF; --ink:#33334D;
@@ -318,7 +319,23 @@ function speak(text, rate){
    ① 単語セット:音声認識 or 手入力
 ========================================================= */
 const kataToHira = s => s.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
-const normalize = s => kataToHira((s||"").trim()).replace(/[\s。、,.!?!?・「」]/g, "");
+/* --- 漢字→ひらがな よみ変換(kuromoji.js) ---
+   音声認識は「ねこ」→"猫" のように漢字で返ってくることが多いため、
+   形態素解析で よみ(カタカナ) をとってひらがなに直す --- */
+let kuroTokenizer = null;
+if(window.kuromoji){
+  kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, tokenizer) => {
+    if(!err) kuroTokenizer = tokenizer;
+  });
+}
+function kanjiToHiragana(text){
+  if(!kuroTokenizer) return kataToHira(text);
+  try{
+    return kuroTokenizer.tokenize(text).map(t => kataToHira(t.reading || t.surface_form)).join("");
+  }catch(e){ return kataToHira(text); }
+}
+
+const normalize = s => kanjiToHiragana((s||"").trim()).replace(/[\s。、,.!?!?・「」]/g, "");
 const isSupported = s => s.length > 0 && [...s].every(c => CHARS[c]);
 
 function refreshGo(){ $("goBtn").disabled = !(dataReady && state.word); }
