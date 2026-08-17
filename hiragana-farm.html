@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ひらがな たんけんクラフト</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#33334D; --accent:#5FAE7C; --accent2:#3E8A5C; --ok:#5FAE7C; --gold:#FFC24B;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0; height:100%; overflow:hidden;}
+  body{
+    position:fixed; inset:0; width:100%;
+    font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+    background:#2B2B3A;
+    color:var(--ink); display:flex; justify-content:center;
+    overscroll-behavior:none; touch-action:manipulation; overflow:hidden;
+  }
+  #app{width:100%; max-width:480px; height:100vh; height:var(--vvh,100vh); display:flex; flex-direction:column; position:relative; background:#FFF9E0;}
+
+  .hud{display:flex; align-items:center; justify-content:space-between; gap:6px; padding:8px 10px; font-weight:900; font-size:13px;}
+  .iconBtn{border:none; background:rgba(0,0,0,.08); color:var(--ink); border-radius:12px;
+    font-family:inherit; font-weight:900; font-size:13px; padding:7px 10px; cursor:pointer;}
+  .iconBtn:disabled{opacity:.35; cursor:default;}
+  #starLabel{background:#FFF3C9; border-radius:12px; padding:6px 10px; font-weight:900; white-space:nowrap;}
+
+  #fieldWrap{flex:1; position:relative; overflow:hidden; min-height:0;}
+  #field{
+    position:absolute; inset:0; overflow:hidden;
+    background-image: repeating-linear-gradient(45deg, var(--floorA,#8FCB6B) 0 20px, var(--floorB,#79BC5D) 20px 40px);
+    border-top:4px solid rgba(0,0,0,.15);
+  }
+  .prop{position:absolute; font-size:26px; pointer-events:none; filter:drop-shadow(0 2px 0 rgba(0,0,0,.15));}
+  .player{position:absolute; width:46px; height:46px; transform:translate(-50%,-50%); z-index:6; pointer-events:none;}
+  .player svg{width:100%; height:100%; display:block;}
+
+  .spawnItem{position:absolute; font-size:30px; pointer-events:none; transform:translate(-50%,-50%); animation:itemBob 1.6s ease-in-out infinite; z-index:3;}
+  .spawnItem.rare{animation:itemBobRare 1.2s ease-in-out infinite; filter:drop-shadow(0 0 6px gold);}
+  @keyframes itemBob{0%,100%{transform:translate(-50%,-50%) translateY(0);}50%{transform:translate(-50%,-50%) translateY(-6px);}}
+  @keyframes itemBobRare{0%,100%{transform:translate(-50%,-50%) translateY(0) scale(1);}50%{transform:translate(-50%,-50%) translateY(-8px) scale(1.15);}}
+  .spawnItem .sparkle{position:absolute; top:-10px; right:-10px; font-size:14px;}
+
+  #tutorialBar{
+    position:absolute; top:8px; left:8px; right:8px; z-index:4;
+    background:rgba(255,255,255,.94); border-radius:14px; padding:8px 12px;
+    font-size:12px; font-weight:900; text-align:center; line-height:1.5;
+    box-shadow:0 3px 8px rgba(0,0,0,.15); display:none; pointer-events:none;
+  }
+  #tutorialBar.show{display:block;}
+
+  #bottom{background:rgba(255,255,255,.95); border-radius:22px 22px 0 0; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); text-align:center;}
+  .padMsg{font-size:13px; font-weight:900; min-height:18px;}
+  .padMsg.good{color:var(--ok);}
+
+  .overlay{
+    position:absolute; inset:0; background:rgba(255,255,255,.96); z-index:20;
+    display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px;
+  }
+  .overlay.show{display:flex;}
+  .overlay h2{font-size:22px; margin:0 0 8px;}
+  .overlay .huge{font-size:64px; animation:pop .5s;}
+  .overlay p{font-size:14px; font-weight:700; line-height:1.7; margin:6px 0 14px;}
+  .overlay > button{
+    display:block; width:240px; max-width:100%; border:none; border-radius:18px;
+    background:var(--accent); color:#fff;
+    font-family:inherit; font-size:16px; font-weight:900; padding:12px 20px; cursor:pointer;
+    box-shadow:0 4px 0 var(--accent2); margin:4px auto;
+  }
+  .overlay > button.sub{background:rgba(0,0,0,.08); color:var(--ink); box-shadow:0 4px 0 rgba(0,0,0,.15);}
+  @keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.3);}100%{transform:scale(1);}}
+
+  .invSummary{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:10px; font-size:13px; font-weight:900;}
+  .invChip{background:#FFF3C9; border-radius:10px; padding:4px 8px;}
+
+  .recipeRow{display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.05); border-radius:14px; padding:8px 10px; margin:6px 0; width:100%; max-width:300px; text-align:left;}
+  .recipeRow.ready{background:#E3F5E8;}
+  .recipeEmoji{font-size:26px;}
+  .recipeInfo{flex:1; font-size:12px; font-weight:900; line-height:1.5;}
+  .recipeNeed{font-size:11px; font-weight:700;}
+  .recipeNeed .got{color:var(--ok);}
+  .recipeNeed .lack{color:#D9534F;}
+  .craftBtn{border:none; border-radius:10px; background:var(--accent); color:#fff; font-family:inherit; font-weight:900; font-size:12px; padding:8px 10px; cursor:pointer; white-space:nowrap;}
+  .craftBtn:disabled{background:rgba(0,0,0,.15); color:rgba(0,0,0,.35); cursor:default;}
+</style>
+</head>
+<body>
+<div id="lineBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#06C755;color:#fff;font-size:12px;font-weight:700;padding:8px 34px 8px 12px;text-align:center;line-height:1.5;box-sizing:border-box;">
+  📱 LINEの中で ひらいています。右上「⋮」から「ブラウザで開く」を選ぶと、もっと快適に あそべます!
+  <button onclick="document.getElementById('lineBanner').remove()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:2px 8px;font-weight:900;cursor:pointer;">✕</button>
+</div>
+<script>if(/Line\//i.test(navigator.userAgent))document.getElementById('lineBanner').style.display='block';</script>
+<div id="rotateOv" style="display:none;position:fixed;inset:0;z-index:999999;background:#1B2A4A;color:#fff;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif;">
+  <div style="font-size:56px;">📱↻</div>
+  <p style="font-size:16px;font-weight:900;margin-top:10px;line-height:1.7;">たてに してね!<br>スマホを たてむきに もどしてね</p>
+</div>
+<style>@media (orientation:landscape) and (max-width:900px){ #rotateOv{display:flex !important;} }</style>
+<script>
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+document.addEventListener('gestureend', function(e){ e.preventDefault(); });
+document.addEventListener('touchmove', function(e){ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
+// おなじ ばしょへの すばやい 連続タップだけを ダブルタップズームとして ふせぐ
+// (タップした場所が ちがう時は はんおうを さまたげない)
+let __lastTapTime = 0, __lastTapX = 0, __lastTapY = 0;
+document.addEventListener('touchend', function(e){
+  const t = e.changedTouches && e.changedTouches[0];
+  if(!t) return;
+  const now = Date.now();
+  const dx = Math.abs(t.clientX - __lastTapX), dy = Math.abs(t.clientY - __lastTapY);
+  if(now - __lastTapTime <= 300 && dx < 30 && dy < 30) e.preventDefault();
+  __lastTapTime = now; __lastTapX = t.clientX; __lastTapY = t.clientY;
+}, {passive:false});
+</script>
+<div id="app">
+
+  <div class="hud">
+    <button class="iconBtn" id="homeBtn">⬅</button>
+    <span id="starLabel">⭐ 0</span>
+    <button class="iconBtn" id="bgmBtn">🎵</button>
+    <button class="iconBtn" id="menuBtn">🎒</button>
+  </div>
+
+  <div id="fieldWrap">
+    <div id="field">
+      <div class="prop" style="left:8%;top:10%;">🌳</div>
+      <div class="prop" style="right:6%;top:14%;">🌳</div>
+      <div class="prop" style="left:10%;bottom:8%;">🌸</div>
+      <div class="prop" style="right:10%;bottom:10%;">🪨</div>
+      <div class="player" id="player"></div>
+    </div>
+    <div id="tutorialBar"></div>
+  </div>
+
+  <div id="bottom">
+    <div class="padMsg" id="toast">フィールドを タップして うごこう!</div>
+  </div>
+
+  <div class="overlay show" id="startOv">
+    <div class="huge">🎒</div>
+    <h2>ひらがな たんけんクラフト</h2>
+    <p>フィールドを あるいて 食材を あつめ、おいしい 料理を つくろう!</p>
+    <button id="startBtn">▶ たんけんに でかける</button>
+  </div>
+
+  <div class="overlay" id="craftOv">
+    <h2>🎒 クラフト</h2>
+    <div class="invSummary" id="invSummary"></div>
+    <div id="recipeList" style="width:100%; max-width:300px; max-height:280px; overflow-y:auto;"></div>
+    <button class="sub" id="craftCloseBtn">◀ とじる</button>
+  </div>
+
+  <div class="overlay" id="clearOv">
+    <div class="huge" id="clearEmoji">🍎</div>
+    <h2 id="clearTitle">STAGE CLEAR!</h2>
+    <p id="clearDesc"></p>
+    <button id="clearNextBtn">▶ つぎへ</button>
+  </div>
+
+</div>
+
+<script>
+/* ====== じっさいに みえている たかさ ====== */
+function setVvh(){
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty("--vvh", h+"px");
+}
+setVvh();
+window.addEventListener("resize", setVvh);
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", setVvh);
+  window.visualViewport.addEventListener("scroll", setVvh);
+}
+
+const $ = id => document.getElementById(id);
+const rand = a => a[Math.floor(Math.random()*a.length)];
+const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+
+/* ====== こうかおん・BGM(8bit・オリジナル曲) ====== */
+let audioCtx=null;
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq,dur,type,vol,delay){
+  try{
+    const ctx=getCtx();
+    if(ctx.state==="suspended") ctx.resume();
+    const t0=ctx.currentTime+(delay||0);
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type=type||"sine"; osc.frequency.setValueAtTime(freq,t0);
+    gain.gain.setValueAtTime(0,t0);
+    gain.gain.linearRampToValueAtTime(vol||.25,t0+.02);
+    gain.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0); osc.stop(t0+dur+.03);
+  }catch(e){}
+}
+function sfxPickup(rare){
+  if(rare){ beep(1046.5,.1,"sine",.25); beep(1568,.14,"sine",.22,.08); }
+  else{ beep(660,.08,"sine",.2); }
+}
+function sfxCraft(rare){
+  beep(523.25,.1,"square",.22); beep(659.25,.1,"square",.22,.09);
+  if(rare){ beep(784,.1,"square",.22,.18); beep(1046.5,.2,"square",.25,.27); }
+}
+function sfxFanfare(){
+  beep(523.25,.14,"square",.25,0); beep(659.25,.14,"square",.25,.13);
+  beep(784,.14,"square",.25,.26); beep(1046.5,.32,"square",.27,.39);
+}
+
+const BGM_BPM = 150;
+const STEP_SEC = 60/BGM_BPM/4;
+const BGM_STEPS = 16;
+const mtof = m => m ? 440*Math.pow(2,(m-69)/12) : 0;
+const BGM_MELODY = [72,0,76,0, 79,0,76,0, 74,0,77,0, 72,0,0,0];
+const BGM_BASS   = [48,48,55,55, 48,48,53,53, 45,45,50,50, 48,48,43,43];
+const BGM_KICK   = [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0];
+const BGM_HAT    = [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0];
+const BGM_SNARE  = [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0];
+
+let bgmOn=true, bgmStep=0, bgmNextTime=0, bgmTimer=null, bgmMasterGain=null;
+function getBgmGain(){
+  if(!bgmMasterGain){
+    bgmMasterGain = getCtx().createGain();
+    bgmMasterGain.gain.value = 1;
+    bgmMasterGain.connect(getCtx().destination);
+  }
+  return bgmMasterGain;
+}
+function setBgmDuck(active){
+  try{
+    const g=getBgmGain(), ctx=getCtx(), now=ctx.currentTime;
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.linearRampToValueAtTime(active?.22:1, now+.15);
+  }catch(e){}
+}
+function bgmTone(freq,t,dur,type,peak,attack){
+  if(!freq) return;
+  const ctx=getCtx();
+  const osc=ctx.createOscillator(), gain=ctx.createGain();
+  osc.type=type; osc.frequency.setValueAtTime(freq,t);
+  gain.gain.setValueAtTime(0,t);
+  gain.gain.linearRampToValueAtTime(peak,t+attack);
+  gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  osc.connect(gain).connect(getBgmGain());
+  osc.start(t); osc.stop(t+dur+.02);
+}
+function bgmNoise(t,dur,filterType,filterFreq,peak){
+  const ctx=getCtx();
+  const buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+  const noise=ctx.createBufferSource(); noise.buffer=buf;
+  const filt=ctx.createBiquadFilter(); filt.type=filterType; filt.frequency.value=filterFreq;
+  const gain=ctx.createGain();
+  gain.gain.setValueAtTime(peak,t);
+  gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  noise.connect(filt).connect(gain).connect(getBgmGain());
+  noise.start(t); noise.stop(t+dur+.02);
+}
+function bgmSchedule(){
+  const ctx=getCtx();
+  while(bgmNextTime < ctx.currentTime + .15){
+    const i = bgmStep % BGM_STEPS;
+    if(bgmOn){
+      bgmTone(mtof(BGM_MELODY[i]), bgmNextTime, STEP_SEC*1.8, "square", .09, .005);
+      bgmTone(mtof(BGM_BASS[i]),   bgmNextTime, STEP_SEC*.9,  "triangle", .15, .003);
+      if(BGM_KICK[i])  bgmTone(90, bgmNextTime, .13, "sine", .3, .002);
+      if(BGM_HAT[i])   bgmNoise(bgmNextTime, .04, "highpass", 7000, .04);
+      if(BGM_SNARE[i]) bgmNoise(bgmNextTime, .07, "bandpass", 1800, .1);
+    }
+    bgmNextTime += STEP_SEC;
+    bgmStep++;
+  }
+}
+function unlockAudioContext(ctx){
+  try{
+    const buf=ctx.createBuffer(1,1,22050);
+    const src=ctx.createBufferSource();
+    src.buffer=buf; src.connect(ctx.destination); src.start(0);
+  }catch(e){}
+}
+function startBgm(){
+  const ctx=getCtx();
+  unlockAudioContext(ctx);
+  const begin=()=>{
+    if(bgmTimer) return;
+    bgmStep=0; bgmNextTime=ctx.currentTime+.05;
+    bgmSchedule();
+    bgmTimer=setInterval(bgmSchedule,50);
+  };
+  if(ctx.state!=="running"){
+    let started=false;
+    const go=()=>{ if(started) return; started=true; begin(); };
+    ctx.resume().then(go).catch(go);
+    setTimeout(go,300);
+  }else{
+    begin();
+  }
+}
+function toggleBgm(){
+  bgmOn=!bgmOn;
+  $("bgmBtn").textContent = bgmOn?"🎵":"🔇";
+}
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden && bgmTimer){ try{ getCtx().resume(); }catch(e){} }
+});
+
+function speak(text, rate){
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang="ja-JP"; u.rate = rate || .9;
+    u.onstart = ()=>setBgmDuck(true);
+    u.onend = ()=>setBgmDuck(false);
+    u.onerror = ()=>setBgmDuck(false);
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ====== プレイヤー(「ぬりぬり ひらがな」と同じデザインの まる顔) ====== */
+function mascotFace(hex){
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="54" r="38" fill="${hex}" stroke="#2b2b3a" stroke-width="3"/>
+    <circle cx="33" cy="42" r="8" fill="rgba(255,255,255,.4)"/>
+    <ellipse cx="34" cy="66" rx="8" ry="5" fill="rgba(255,255,255,.35)"/>
+    <ellipse cx="66" cy="66" rx="8" ry="5" fill="rgba(255,255,255,.35)"/>
+    <ellipse cx="38" cy="56" rx="6" ry="8" fill="#fff"/>
+    <ellipse cx="62" cy="56" rx="6" ry="8" fill="#fff"/>
+    <circle cx="39" cy="58" r="3" fill="#232333"/>
+    <circle cx="63" cy="58" r="3" fill="#232333"/>
+    <path d="M42 72 Q50 78 58 72" stroke="#2b2b3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/* ====== ⭐・コレクション(全ゲーム共通・永続) ====== */
+const COLLECTION_KEY = "hiragana_collection_v1";
+function loadCollection(){
+  try{
+    const raw = localStorage.getItem(COLLECTION_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { xp:0, gems:{}, equips:{pen:0, shield:0, charm:0} };
+}
+function saveCollection(c){ try{ localStorage.setItem(COLLECTION_KEY, JSON.stringify(c)); }catch(e){} }
+function addXp(amount){
+  const c=loadCollection();
+  c.xp += amount;
+  saveCollection(c);
+  return c.xp;
+}
+function updateStarLabel(){ $("starLabel").textContent = "⭐ " + loadCollection().xp; }
+
+/* ====== すすみぐあい・もちもの(オートセーブ) ====== */
+const PROGRESS_KEY = "hiragana_craft_progress_v1";
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {stage:1, dishesCrafted:0, tutorialStep:0, hasCraftedRare:false};
+}
+function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
+
+const INV_KEY = "hiragana_craft_inventory_v1";
+function loadInventory(){
+  try{
+    const raw = localStorage.getItem(INV_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {};
+}
+function saveInventory(inv){ try{ localStorage.setItem(INV_KEY, JSON.stringify(inv)); }catch(e){} }
+
+/* ====== 食材・レシピ・ステージ(バイオーム) ====== */
+const INGREDIENTS = [
+ {kana:"り", name:"りんご",           emoji:"🍎", rare:false},
+ {kana:"に", name:"にく",             emoji:"🥩", rare:false},
+ {kana:"さ", name:"さかな",           emoji:"🐟", rare:false},
+ {kana:"た", name:"たまご",           emoji:"🥚", rare:false},
+ {kana:"お", name:"おうごんの はちみつ", emoji:"🍯", rare:true}
+];
+const COMMON_INGREDIENTS = INGREDIENTS.filter(i=>!i.rare);
+const RARE_INGREDIENTS = INGREDIENTS.filter(i=>i.rare);
+function rollItem(){
+  return (Math.random() < .15) ? rand(RARE_INGREDIENTS) : rand(COMMON_INGREDIENTS);
+}
+const RECIPES = [
+ {id:"yakiringo",  name:"やきりんご",           emoji:"🍎🔥", need:{"り":1}, star:4},
+ {id:"nikuyaki",   name:"にくやき",             emoji:"🍖",  need:{"に":1}, star:4},
+ {id:"yakizakana", name:"やきざかな",           emoji:"🐠",  need:{"さ":1}, star:4},
+ {id:"tamagoyaki", name:"たまごやき",           emoji:"🍳",  need:{"た":1}, star:4},
+ {id:"tokusei",    name:"とくせい はちみつデザート", emoji:"🍯✨", need:{"お":1}, star:12, rare:true}
+];
+const STAGES = [
+ {id:1, name:"はじまりの まきば", floorA:"#8FCB6B", floorB:"#79BC5D", tutorial:true,  clearGoal:1},
+ {id:2, name:"ひろい くさはら",   floorA:"#79C98A", floorB:"#69B97A", tutorial:false, clearGoal:3}
+];
+const SPAWN_POINTS_DEF = [
+ {x:.22,y:.28},{x:.75,y:.22},{x:.5,y:.5},{x:.18,y:.72},{x:.8,y:.68}
+];
+const SPEED = 150; // px/秒
+const PICKUP_RADIUS = 30;
+const PAD = 24;
+
+const TUTORIAL_TEXT = [
+ "ゆびで いきたい ばしょを タップして うごいてみよう!",
+ "りんごの ところまで あるいて、ひろってみよう!",
+ "がめんの すみの 🎒 メニューを あけてみよう!",
+ "「やきりんご」を タップして つくってみよう!"
+];
+
+const G = { gameActive:false, playerX:0, playerY:0, spawnPoints:[] };
+
+function setToast(t,cls){ const m=$("toast"); m.textContent=t; m.className="padMsg "+(cls||""); }
+
+function renderTutorialBar(prog){
+  const bar=$("tutorialBar");
+  if(prog.stage!==1){ bar.classList.remove("show"); return; }
+  bar.textContent = TUTORIAL_TEXT[clamp(prog.tutorialStep,0,3)];
+  bar.classList.add("show");
+}
+function updateMenuBtnState(prog){
+  $("menuBtn").disabled = (prog.stage===1 && prog.tutorialStep<2);
+}
+
+/* ====== プレイヤーの いどう ====== */
+function placePlayerInitial(x,y){
+  const el=$("player");
+  el.style.transition="none";
+  el.style.left=x+"px"; el.style.top=y+"px";
+  G.playerX=x; G.playerY=y;
+}
+function movePlayerTo(x,y){
+  const el=$("player");
+  const dx=x-G.playerX, dy=y-G.playerY;
+  const dist=Math.hypot(dx,dy);
+  const dur=Math.max(.12, dist/SPEED);
+  el.style.transition = `left ${dur}s linear, top ${dur}s linear`;
+  if(dx < -2) el.style.transform = "translate(-50%,-50%) scaleX(-1)";
+  else if(dx > 2) el.style.transform = "translate(-50%,-50%) scaleX(1)";
+  el.style.left = x+"px";
+  el.style.top = y+"px";
+  G.playerX=x; G.playerY=y;
+}
+$("field").addEventListener("click", (e)=>{
+  if(!G.gameActive) return;
+  const rect = $("field").getBoundingClientRect();
+  const x = clamp(e.clientX-rect.left, PAD, rect.width-PAD);
+  const y = clamp(e.clientY-rect.top, PAD, rect.height-PAD);
+  movePlayerTo(x,y);
+  const prog = loadProgress();
+  if(prog.stage===1 && prog.tutorialStep===0){
+    prog.tutorialStep=1; saveProgress(prog); renderTutorialBar(prog);
+  }
+});
+
+/* ====== たね(食材)の ポップ・しゅうかく ====== */
+function clearSpawns(){
+  (G.spawnPoints||[]).forEach(sp=>{ if(sp.el) sp.el.remove(); });
+  G.spawnPoints = [];
+}
+function spawnItemAt(sp,item){
+  const rect = $("field").getBoundingClientRect();
+  const el = document.createElement("div");
+  el.className = "spawnItem"+(item.rare?" rare":"");
+  el.innerHTML = item.emoji + (item.rare?'<span class="sparkle">✨</span>':"");
+  el.style.left = (rect.width*sp.defX)+"px";
+  el.style.top = (rect.height*sp.defY)+"px";
+  $("field").appendChild(el);
+  sp.item = item; sp.el = el;
+}
+function tickSpawns(){
+  if(!G.gameActive) return;
+  const now = Date.now();
+  G.spawnPoints.forEach(sp=>{
+    if(sp.item) return;
+    if(now < sp.nextSpawnAt) return;
+    const item = sp.fixed ? INGREDIENTS.find(i=>i.kana===sp.fixed) : rollItem();
+    spawnItemAt(sp, item);
+  });
+}
+setInterval(tickSpawns, 1000);
+
+function collectItem(sp){
+  const item = sp.item;
+  if(sp.el) sp.el.remove();
+  sp.item=null; sp.el=null;
+  if(!sp.fixed) sp.nextSpawnAt = Date.now() + 8000 + Math.random()*7000;
+  const inv = loadInventory();
+  inv[item.kana] = (inv[item.kana]||0)+1;
+  saveInventory(inv);
+  sfxPickup(item.rare);
+  speak(item.name + "の「" + item.kana + "」だね!");
+  setToast(`「${item.name}」を ひろった!`, "good");
+  const prog = loadProgress();
+  if(prog.stage===1 && prog.tutorialStep===1){
+    prog.tutorialStep=2; saveProgress(prog);
+    renderTutorialBar(prog); updateMenuBtnState(prog);
+  }
+}
+setInterval(()=>{
+  if(!G.gameActive) return;
+  const pr = $("player").getBoundingClientRect();
+  const px = pr.left+pr.width/2, py = pr.top+pr.height/2;
+  G.spawnPoints.forEach(sp=>{
+    if(!sp.item || !sp.el) return;
+    const r = sp.el.getBoundingClientRect();
+    const ix = r.left+r.width/2, iy = r.top+r.height/2;
+    if(Math.hypot(px-ix, py-iy) < PICKUP_RADIUS) collectItem(sp);
+  });
+}, 150);
+
+/* ====== クラフト(メニュー) ====== */
+function renderCraftMenu(){
+  const inv = loadInventory();
+  const invBox = $("invSummary"); invBox.innerHTML="";
+  const held = Object.keys(inv).filter(k=>inv[k]>0);
+  if(!held.length){
+    invBox.innerHTML = '<span class="invChip">まだ 食材が ないよ</span>';
+  }else{
+    held.forEach(k=>{
+      const ing = INGREDIENTS.find(i=>i.kana===k);
+      const chip=document.createElement("span");
+      chip.className="invChip";
+      chip.textContent = `${ing.emoji}×${inv[k]}`;
+      invBox.appendChild(chip);
+    });
+  }
+  const list=$("recipeList"); list.innerHTML="";
+  RECIPES.forEach(r=>{
+    const canCraft = Object.keys(r.need).every(k=>(inv[k]||0)>=r.need[k]);
+    const row=document.createElement("div");
+    row.className="recipeRow"+(canCraft?" ready":"");
+    const needStr = Object.keys(r.need).map(k=>{
+      const ing=INGREDIENTS.find(i=>i.kana===k);
+      const have=(inv[k]||0)>=r.need[k];
+      return `<span class="${have?'got':'lack'}">${ing.emoji}×${r.need[k]}</span>`;
+    }).join(" ");
+    row.innerHTML = `<span class="recipeEmoji">${r.emoji}</span>
+      <span class="recipeInfo">${r.name}<br><span class="recipeNeed">${needStr} ⭐+${r.star}</span></span>
+      <button class="craftBtn" ${canCraft?"":"disabled"}>つくる</button>`;
+    row.querySelector(".craftBtn").onclick=()=>craftDish(r);
+    list.appendChild(row);
+  });
+}
+function craftDish(recipe){
+  const inv = loadInventory();
+  const canCraft = Object.keys(recipe.need).every(k=>(inv[k]||0)>=recipe.need[k]);
+  if(!canCraft) return;
+  Object.keys(recipe.need).forEach(k=>{ inv[k]-=recipe.need[k]; });
+  saveInventory(inv);
+  const prog = loadProgress();
+  prog.dishesCrafted = (prog.dishesCrafted||0)+1;
+  if(recipe.rare) prog.hasCraftedRare = true;
+  saveProgress(prog);
+  addXp(recipe.star);
+  sfxCraft(!!recipe.rare);
+  speak(recipe.name + "の できあがり!");
+  updateStarLabel();
+  const cfg = STAGES[prog.stage-1];
+  if(prog.dishesCrafted >= cfg.clearGoal){
+    $("craftOv").classList.remove("show");
+    showStageClear(cfg, recipe, prog);
+  }else{
+    renderCraftMenu();
+    setToast(`「${recipe.name}」を つくったよ! (${prog.dishesCrafted}/${cfg.clearGoal})`, "good");
+  }
+}
+$("menuBtn").onclick=()=>{
+  if($("menuBtn").disabled) return;
+  const prog = loadProgress();
+  if(prog.stage===1 && prog.tutorialStep===2){
+    prog.tutorialStep=3; saveProgress(prog); renderTutorialBar(prog);
+  }
+  renderCraftMenu();
+  $("craftOv").classList.add("show");
+};
+$("craftCloseBtn").onclick=()=>{ $("craftOv").classList.remove("show"); };
+
+/* ====== ステージクリア ====== */
+function showStageClear(cfg, recipe, prog){
+  G.gameActive = false;
+  sfxFanfare();
+  $("clearEmoji").textContent = recipe.emoji;
+  $("clearTitle").textContent = "STAGE CLEAR!";
+  if(cfg.tutorial){
+    $("clearDesc").textContent = "おめでとう!これで ステージ1 クリアだ!";
+  }else{
+    const rating = prog.hasCraftedRare ? "だいせいこう! ✨" : "せいこう!";
+    $("clearDesc").textContent = `${cfg.name}を たんけん できたね!${rating}`;
+  }
+  const nextCfg = STAGES[prog.stage];
+  if(nextCfg){
+    $("clearNextBtn").textContent = "▶ つぎの ステージへ";
+    $("clearNextBtn").onclick = ()=>{ advanceStage(prog); };
+  }else{
+    $("clearNextBtn").textContent = "🏠 ホームへ";
+    $("clearNextBtn").onclick = ()=>{ location.href="index.html"; };
+  }
+  $("clearOv").classList.add("show");
+}
+function advanceStage(prog){
+  $("clearOv").classList.remove("show");
+  prog.stage += 1;
+  prog.dishesCrafted = 0;
+  prog.hasCraftedRare = false;
+  prog.tutorialStep = 0;
+  saveProgress(prog);
+  initStage(prog.stage);
+}
+
+/* ====== ステージの じゅんび ====== */
+function initStage(n){
+  const cfg = STAGES[n-1];
+  $("field").style.setProperty("--floorA", cfg.floorA);
+  $("field").style.setProperty("--floorB", cfg.floorB);
+  clearSpawns();
+  if(cfg.tutorial){
+    G.spawnPoints = [{defX:.5, defY:.4, item:null, el:null, nextSpawnAt:0, fixed:"り"}];
+  }else{
+    G.spawnPoints = SPAWN_POINTS_DEF.map(p=>({defX:p.x, defY:p.y, item:null, el:null, nextSpawnAt: Date.now()+Math.random()*4000}));
+  }
+  const prog = loadProgress();
+  updateMenuBtnState(prog);
+  renderTutorialBar(prog);
+  updateStarLabel();
+  G.gameActive = true;
+  requestAnimationFrame(()=>{
+    const rect = $("field").getBoundingClientRect();
+    placePlayerInitial(rect.width*.5, rect.height*.75);
+  });
+}
+
+/* ====== はじめる ====== */
+$("player").innerHTML = mascotFace("#7BC66E");
+$("homeBtn").onclick=()=>{ location.href="index.html"; };
+$("bgmBtn").onclick=toggleBgm;
+
+const existingProgress = localStorage.getItem(PROGRESS_KEY);
+if(existingProgress){
+  $("startOv").querySelector("p").textContent = "つづきから たんけんを さいかいしよう!";
+  $("startBtn").textContent = "▶ つづきから はじめる";
+}
+$("startBtn").onclick=()=>{
+  $("startOv").classList.remove("show");
+  startBgm();
+  const prog = loadProgress();
+  initStage(prog.stage||1);
+};
+</script>
+</body>
+</html>
