@@ -229,14 +229,9 @@ function speak(text, rate){
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }catch(e){}
 }
-// もじが よめない子にも「どこが あなか」を おとで つたえる(こたえの もじは いわない)
-function positionPhrase(blankIdx, wordLen){
-  if(blankIdx===0) return "さいしょの もじ";
-  if(blankIdx===wordLen-1) return "さいごの もじ";
-  return "まんなかの もじ";
-}
+// もじが よめない子にも わかるように、たいしょうの もじの よみを そのまま つたえる
 function speakQuestion(word, blankIdx){
-  speak(word + "の " + positionPhrase(blankIdx, word.length) + "は どれかな");
+  speak(word + "の「" + word[blankIdx] + "」は どれかな");
 }
 
 /* ====== 単語バンク(絵つき) ====== */
@@ -722,6 +717,7 @@ function nextRound(){
   G.lastWord=item.w;
   G.roundHadMistake=false;
   G.roundMisses=0;
+  G.revealed=false;
   const blankIdx=blankIndexFor(item.w, G.stageDef.blank);
   G.current={word:item.w, emoji:item.e, blankIdx, answer:item.w[blankIdx]};
   renderPrompt();
@@ -749,6 +745,16 @@ function makeChoices(){
   });
 }
 function chooseChar(ch, btn){
+  if(G.revealed){
+    // こたえを おしえたあとは、ハイライトした 正解ボタンを 自分で タップしたときだけ すすむ
+    if(ch===G.current.answer){
+      sfxCorrect();
+      setPadMsg(`「${G.current.word}」の「${G.current.answer}」だね! いろが ふえたよ`,"good");
+      document.querySelectorAll(".choiceBtn").forEach(b=>b.disabled=true);
+      paintRandomTile();
+    }
+    return;
+  }
   if(ch===G.current.answer){
     sfxCorrect();
     recordCharResult(ch, !G.roundHadMistake);
@@ -774,16 +780,16 @@ function chooseChar(ch, btn){
     }
   }
 }
-/* ====== 2かい まちがえたら、せめずに いっしょに こたえを みて つぎへ ====== */
+/* ====== 2かい まちがえたら、せめずに こたえを ハイライト。すすむのは 自分で タップしてから ====== */
 function revealAnswer(){
   recordCharResult(G.current.answer, false);
+  G.revealed=true;
   document.querySelectorAll(".choiceBtn").forEach(b=>{
-    b.disabled = true;
-    if(b.textContent===G.current.answer) b.classList.add("revealed");
+    if(b.textContent===G.current.answer){ b.classList.add("revealed"); b.disabled=false; }
+    else{ b.disabled=true; }
   });
-  setPadMsg(`「${G.current.word}」は「${G.current.answer}」だよ!いっしょに おぼえよう!`,"good");
+  setPadMsg(`「${G.current.word}」は「${G.current.answer}」だよ!タップして おぼえよう!`,"good");
   speak(G.current.answer);
-  setTimeout(()=>{ paintRandomTile(); }, 1400);
 }
 function setPadMsg(t,cls){ const m=$("padMsg"); m.textContent=t; m.className="padMsg "+(cls||""); }
 $("wordSpeak").onclick=()=>{ if(G.current) speakQuestion(G.current.word, G.current.blankIdx); };
