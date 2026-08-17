@@ -47,8 +47,9 @@
   .choices{display:flex; gap:10px; justify-content:center;}
   .choiceBtn{
     width:64px; height:56px; border-radius:14px; background:#fff; color:var(--ink);
-    font-family:inherit; font-size:28px; font-weight:900; cursor:pointer;
-    box-shadow:0 3px 0 #DDE9DF; border:3px solid #DDE9DF;
+    font-family:inherit; font-size:28px; font-weight:900; line-height:1; cursor:pointer;
+    box-shadow:0 3px 0 #DDE9DF; border:3px solid #DDE9DF; padding:0; margin:0;
+    display:flex; align-items:center; justify-content:center;
   }
   .choiceBtn:active{transform:translateY(2px);}
   .choiceBtn.wrong{animation:shakeX .35s;}
@@ -80,7 +81,8 @@
   .mascotCard.sel{background:#FFE3D7; box-shadow:0 0 0 3px var(--accent) inset; transform:scale(1.06);}
   .stageGrid{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:300px; margin:6px 0 18px;}
   .stageBtn{
-    width:76px; height:76px; border-radius:18px; border:none; cursor:pointer;
+    width:76px; height:76px; border-radius:18px; border:none; cursor:pointer; padding:0; margin:0;
+    display:flex; align-items:center; justify-content:center; flex-direction:column; line-height:1.3;
     font-family:inherit; font-weight:900; font-size:17px; color:#fff;
     background:var(--accent); box-shadow:0 4px 0 #D65F3C;
   }
