@@ -115,12 +115,13 @@
   .overlay h2{font-size:26px; margin:0 0 8px;}
   .overlay .huge{font-size:80px; animation:pop .6s;}
   .overlay p{font-size:15px; font-weight:700; line-height:1.8; margin:6px 0 16px;}
-  .overlay button{
-    border:none; border-radius:18px; background:var(--accent); color:#fff;
-    font-family:inherit; font-size:17px; font-weight:900; padding:13px 30px; cursor:pointer;
-    box-shadow:0 4px 0 #D65F3C; margin:4px;
+  .overlay > button{
+    display:block; width:260px; max-width:100%; border:none; border-radius:18px;
+    background:var(--accent); color:#fff;
+    font-family:inherit; font-size:17px; font-weight:900; padding:13px 20px; cursor:pointer;
+    box-shadow:0 4px 0 #D65F3C; margin:4px auto;
   }
-  .overlay button.sub{background:rgba(255,255,255,.2); box-shadow:0 4px 0 rgba(0,0,0,.3);}
+  .overlay > button.sub{background:rgba(255,255,255,.2); box-shadow:0 4px 0 rgba(0,0,0,.3);}
   .capsule{font-size:70px; animation:capShake 1s;}
   @keyframes capShake{0%,100%{transform:rotate(0);}20%{transform:rotate(-15deg);}40%{transform:rotate(15deg);}60%{transform:rotate(-10deg);}80%{transform:rotate(10deg);}}
   .collList{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:320px; margin-bottom:10px;}
@@ -581,8 +582,15 @@ function updateTimerDisplay(){
 }
 
 /* ====== 敵 ====== */
+function pickNonRepeating(pool){
+  if(pool.length<=1) return rand(pool);
+  let item;
+  do{ item = rand(pool); }while(item.w===G.lastWord);
+  return item;
+}
 function spawnEnemy(){
-  const item = rand(poolFor(G.stageDef.pool));
+  const item = pickNonRepeating(poolFor(G.stageDef.pool));
+  G.lastWord = item.w;
   const blankIdx = blankIndexFor(item.w, G.stageDef.blank);
   const en = document.createElement("div");
   en.className = "enemy";
