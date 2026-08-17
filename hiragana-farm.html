@@ -36,19 +36,27 @@
   .player{position:absolute; width:46px; height:46px; transform:translate(-50%,-50%); z-index:6; pointer-events:none;}
   .player svg{width:100%; height:100%; display:block;}
 
-  .spawnItem{position:absolute; font-size:30px; pointer-events:none; transform:translate(-50%,-50%); animation:itemBob 1.6s ease-in-out infinite; z-index:3;}
-  .spawnItem.rare{animation:itemBobRare 1.2s ease-in-out infinite; filter:drop-shadow(0 0 6px gold);}
+  .spawnItem{position:absolute; pointer-events:none; transform:translate(-50%,-50%); animation:itemBob 1.6s ease-in-out infinite; z-index:3;}
+  .spawnItem.rare{animation:itemBobRare 1.2s ease-in-out infinite;}
   @keyframes itemBob{0%,100%{transform:translate(-50%,-50%) translateY(0);}50%{transform:translate(-50%,-50%) translateY(-6px);}}
   @keyframes itemBobRare{0%,100%{transform:translate(-50%,-50%) translateY(0) scale(1);}50%{transform:translate(-50%,-50%) translateY(-8px) scale(1.15);}}
   .spawnItem .sparkle{position:absolute; top:-10px; right:-10px; font-size:14px;}
+  .tileGlyph{
+    display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border-radius:8px;
+    background:#fff; border:3px solid #33334D; color:#33334D;
+    font-family:"Zen Maru Gothic",sans-serif; font-weight:900; font-size:19px;
+    box-shadow:0 3px 0 rgba(0,0,0,.2);
+  }
+  .spawnItem.rare .tileGlyph{ background:#FFF3C9; border-color:#E0A400; color:#8a5a00; }
 
-  #tutorialBar{
+  #questBar{
     position:absolute; top:8px; left:8px; right:8px; z-index:4;
     background:rgba(255,255,255,.94); border-radius:14px; padding:8px 12px;
     font-size:12px; font-weight:900; text-align:center; line-height:1.5;
     box-shadow:0 3px 8px rgba(0,0,0,.15); display:none; pointer-events:none;
   }
-  #tutorialBar.show{display:block;}
+  #questBar.show{display:block;}
 
   #bottom{background:rgba(255,255,255,.95); border-radius:22px 22px 0 0; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); text-align:center;}
   .padMsg{font-size:13px; font-weight:900; min-height:18px;}
@@ -71,18 +79,20 @@
   .overlay > button.sub{background:rgba(0,0,0,.08); color:var(--ink); box-shadow:0 4px 0 rgba(0,0,0,.15);}
   @keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.3);}100%{transform:scale(1);}}
 
-  .invSummary{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:10px; font-size:13px; font-weight:900;}
+  .invSummary{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:10px; font-size:14px; font-weight:900;}
   .invChip{background:#FFF3C9; border-radius:10px; padding:4px 8px;}
+  .invChip.rareChip{background:#FFE7A0; box-shadow:0 0 0 2px #E0A400 inset;}
 
-  .recipeRow{display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.05); border-radius:14px; padding:8px 10px; margin:6px 0; width:100%; max-width:300px; text-align:left;}
-  .recipeRow.ready{background:#E3F5E8;}
-  .recipeEmoji{font-size:26px;}
-  .recipeInfo{flex:1; font-size:12px; font-weight:900; line-height:1.5;}
-  .recipeNeed{font-size:11px; font-weight:700;}
-  .recipeNeed .got{color:var(--ok);}
-  .recipeNeed .lack{color:#D9534F;}
-  .craftBtn{border:none; border-radius:10px; background:var(--accent); color:#fff; font-family:inherit; font-weight:900; font-size:12px; padding:8px 10px; cursor:pointer; white-space:nowrap;}
-  .craftBtn:disabled{background:rgba(0,0,0,.15); color:rgba(0,0,0,.35); cursor:default;}
+  .questRow{display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.05); border-radius:14px; padding:8px 10px; margin:6px 0; width:100%; max-width:300px; text-align:left;}
+  .questRow.ready{background:#E3F5E8;}
+  .questRow.done{opacity:.55;}
+  .questEmoji{font-size:26px;}
+  .questInfo{flex:1; font-size:13px; font-weight:900; line-height:1.5;}
+  .questNeed{font-size:11px; font-weight:700;}
+  .questNeed .got{color:var(--ok);}
+  .questNeed .lack{color:#D9534F;}
+  .questBtn{border:none; border-radius:10px; background:var(--accent); color:#fff; font-family:inherit; font-weight:900; font-size:12px; padding:8px 10px; cursor:pointer; white-space:nowrap;}
+  .questBtn:disabled{background:rgba(0,0,0,.15); color:rgba(0,0,0,.35); cursor:default;}
 </style>
 </head>
 <body>
@@ -119,7 +129,7 @@ document.addEventListener('touchend', function(e){
     <button class="iconBtn" id="homeBtn">⬅</button>
     <span id="starLabel">⭐ 0</span>
     <button class="iconBtn" id="bgmBtn">🎵</button>
-    <button class="iconBtn" id="menuBtn">🎒</button>
+    <button class="iconBtn" id="menuBtn">🎯</button>
   </div>
 
   <div id="fieldWrap">
@@ -130,7 +140,7 @@ document.addEventListener('touchend', function(e){
       <div class="prop" style="right:10%;bottom:10%;">🪨</div>
       <div class="player" id="player"></div>
     </div>
-    <div id="tutorialBar"></div>
+    <div id="questBar"></div>
   </div>
 
   <div id="bottom">
@@ -138,16 +148,16 @@ document.addEventListener('touchend', function(e){
   </div>
 
   <div class="overlay show" id="startOv">
-    <div class="huge">🎒</div>
+    <div class="huge">🎯</div>
     <h2>ひらがな たんけんクラフト</h2>
-    <p>フィールドを あるいて 食材を あつめ、おいしい 料理を つくろう!</p>
+    <p>フィールドで ひらがなの タイルを あつめて、クエストの ことばを かんせいさせよう!</p>
     <button id="startBtn">▶ たんけんに でかける</button>
   </div>
 
   <div class="overlay" id="craftOv">
-    <h2>🎒 クラフト</h2>
+    <h2>🎯 クエスト</h2>
     <div class="invSummary" id="invSummary"></div>
-    <div id="recipeList" style="width:100%; max-width:300px; max-height:280px; overflow-y:auto;"></div>
+    <div id="questList" style="width:100%; max-width:300px; max-height:280px; overflow-y:auto;"></div>
     <button class="sub" id="craftCloseBtn">◀ とじる</button>
   </div>
 
@@ -353,6 +363,23 @@ function addXp(amount){
 }
 function updateStarLabel(){ $("starLabel").textContent = "⭐ " + loadCollection().xp; }
 
+/* ====== もじべつ せいかいりつ(シューター/ぬりぬりと共通。
+   「ひみつきちで であった もじ」の はんてい つまり ステージの クエストの えらびこみに つかう) ====== */
+const CHAR_STATS_KEY = "hiragana_char_stats_v1";
+function loadCharStats(){
+  try{
+    const raw = localStorage.getItem(CHAR_STATS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {};
+}
+function knownChars(){
+  const stats = loadCharStats();
+  const s = new Set();
+  Object.keys(stats).forEach(ch=>{ if(stats[ch].rounds>0) s.add(ch); });
+  return s;
+}
+
 /* ====== すすみぐあい・もちもの(オートセーブ) ====== */
 const PROGRESS_KEY = "hiragana_craft_progress_v1";
 function loadProgress(){
@@ -360,7 +387,7 @@ function loadProgress(){
     const raw = localStorage.getItem(PROGRESS_KEY);
     if(raw) return JSON.parse(raw);
   }catch(e){}
-  return {stage:1, dishesCrafted:0, tutorialStep:0, hasCraftedRare:false};
+  return {tutorialDone:false, tutorialStep:0, stageIdx:0, quests:[], hasUsedRare:false};
 }
 function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
 
@@ -374,56 +401,110 @@ function loadInventory(){
 }
 function saveInventory(inv){ try{ localStorage.setItem(INV_KEY, JSON.stringify(inv)); }catch(e){} }
 
-/* ====== 食材・レシピ・ステージ(バイオーム) ====== */
-const INGREDIENTS = [
- {kana:"り", name:"りんご",           emoji:"🍎", rare:false},
- {kana:"に", name:"にく",             emoji:"🥩", rare:false},
- {kana:"さ", name:"さかな",           emoji:"🐟", rare:false},
- {kana:"た", name:"たまご",           emoji:"🥚", rare:false},
- {kana:"お", name:"おうごんの はちみつ", emoji:"🍯", rare:true}
+/* ====== 単語バンク(「ぬりぬり ひらがな」「ひらがな シューター」と共通) ====== */
+const WORDS = [
+ {w:"りんご",e:"🍎"},{w:"ねこ",e:"🐱"},{w:"いぬ",e:"🐶"},{w:"ぱんだ",e:"🐼"},
+ {w:"たこ",e:"🐙"},{w:"すいか",e:"🍉"},{w:"ばなな",e:"🍌"},{w:"ほし",e:"⭐"},
+ {w:"つき",e:"🌙"},{w:"さかな",e:"🐟"},{w:"くるま",e:"🚗"},{w:"かさ",e:"☂️"},
+ {w:"ふね",e:"⛵"},{w:"きのこ",e:"🍄"},{w:"おにぎり",e:"🍙"},{w:"たまご",e:"🥚"},
+ {w:"とり",e:"🐦"},{w:"うみ",e:"🌊"},{w:"やま",e:"⛰️"},{w:"はな",e:"🌸"},
+ {w:"かに",e:"🦀"},{w:"うさぎ",e:"🐰"},{w:"ぞう",e:"🐘"},{w:"きりん",e:"🦒"},
+ {w:"かえる",e:"🐸"},{w:"くじら",e:"🐳"},{w:"ねずみ",e:"🐭"},{w:"らいおん",e:"🦁"},
+ {w:"あり",e:"🐜"},{w:"けむし",e:"🐛"},{w:"せみ",e:"🦗"},{w:"そら",e:"🌤️"},
+ {w:"ちず",e:"🗺️"},{w:"てがみ",e:"✉️"},{w:"ひよこ",e:"🐤"},{w:"へび",e:"🐍"},
+ {w:"むぎ",e:"🌾"},{w:"めがね",e:"👓"},{w:"もも",e:"🍑"},{w:"ゆき",e:"❄️"},
+ {w:"よる",e:"🌃"},{w:"れもん",e:"🍋"},{w:"ろうそく",e:"🕯️"},{w:"わに",e:"🐊"},
+ {w:"かがみ",e:"🪞"},{w:"かぐ",e:"🛋️"},{w:"げた",e:"🩴"},{w:"ひざ",e:"🦵"},
+ {w:"かぜ",e:"💨"},{w:"でんわ",e:"☎️"},{w:"どんぐり",e:"🌰"},{w:"えび",e:"🦐"},
+ {w:"ぶた",e:"🐷"},{w:"かべ",e:"🧱"},{w:"ぼうし",e:"👒"},{w:"えんぴつ",e:"✏️"},
+ {w:"てんぷら",e:"🍤"},{w:"ぺんぎん",e:"🐧"},{w:"たんぽぽ",e:"🌼"}
 ];
-const COMMON_INGREDIENTS = INGREDIENTS.filter(i=>!i.rare);
-const RARE_INGREDIENTS = INGREDIENTS.filter(i=>i.rare);
-function rollItem(){
-  return (Math.random() < .15) ? rand(RARE_INGREDIENTS) : rand(COMMON_INGREDIENTS);
+function poolFor(key){
+  if(key==="len2") return WORDS.filter(w=>w.w.length===2);
+  if(key==="len3") return WORDS.filter(w=>w.w.length===3);
+  return WORDS;
 }
-const RECIPES = [
- {id:"yakiringo",  name:"やきりんご",           emoji:"🍎🔥", need:{"り":1}, star:4},
- {id:"nikuyaki",   name:"にくやき",             emoji:"🍖",  need:{"に":1}, star:4},
- {id:"yakizakana", name:"やきざかな",           emoji:"🐠",  need:{"さ":1}, star:4},
- {id:"tamagoyaki", name:"たまごやき",           emoji:"🍳",  need:{"た":1}, star:4},
- {id:"tokusei",    name:"とくせい はちみつデザート", emoji:"🍯✨", need:{"お":1}, star:12, rare:true}
-];
+function wordNeed(word){
+  const need={};
+  for(const ch of word) need[ch]=(need[ch]||0)+1;
+  return need;
+}
+// 濁点・半濁点・小さい文字(拗音・促音)を ふくむ もじは レア あつかい
+const RARE_RE = /[がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽゃゅょっぁぃぅぇぉ]/;
+const RARE_SET = new Set();
+WORDS.forEach(w=>{ for(const ch of w.w) if(RARE_RE.test(ch)) RARE_SET.add(ch); });
+
+/* ====== ステージ表(「ひらがな シューター」「ぬりぬり ひらがな」と共通の進捗) ====== */
 const STAGES = [
- {id:1, name:"はじまりの まきば", floorA:"#8FCB6B", floorB:"#79BC5D", tutorial:true,  clearGoal:1},
- {id:2, name:"ひろい くさはら",   floorA:"#79C98A", floorB:"#69B97A", tutorial:false, clearGoal:3}
+ {id:"1-1", pool:"len2", blank:"first"},
+ {id:"1-2", pool:"len2", blank:"last"},
+ {id:"1-3", pool:"len3", blank:"first"},
+ {id:"1-4", pool:"len3", blank:"last"},
+ {id:"2-1", pool:"len3", blank:"mid"},
+ {id:"2-2", pool:"all",  blank:"random"}
 ];
+const BIOME_PALETTES = [
+ {floorA:"#8FCB6B", floorB:"#79BC5D"},
+ {floorA:"#86C978", floorB:"#72B968"},
+ {floorA:"#7DC784", floorB:"#69B873"},
+ {floorA:"#74C591", floorB:"#61B57F"},
+ {floorA:"#6BC29E", floorB:"#59B38B"},
+ {floorA:"#62C0AB", floorB:"#51B097"}
+];
+function applyBiome(idx){
+  const p = BIOME_PALETTES[idx] || BIOME_PALETTES[0];
+  $("field").style.setProperty("--floorA", p.floorA);
+  $("field").style.setProperty("--floorB", p.floorB);
+}
+function pickQuestWords(cfg, count){
+  const pool = poolFor(cfg.pool);
+  const known = knownChars();
+  let candidates = pool;
+  if(known.size >= 5){
+    const filtered = pool.filter(w=>[...w.w].every(ch=>known.has(ch)));
+    if(filtered.length >= count) candidates = filtered;
+  }
+  const shuffled = [...candidates].sort(()=>Math.random()-.5);
+  const picked = shuffled.slice(0, Math.min(count, shuffled.length));
+  return picked.length ? picked : [pool[0]];
+}
+
 const SPAWN_POINTS_DEF = [
- {x:.22,y:.28},{x:.75,y:.22},{x:.5,y:.5},{x:.18,y:.72},{x:.8,y:.68}
+ {x:.18,y:.24},{x:.5,y:.18},{x:.82,y:.24},
+ {x:.18,y:.55},{x:.5,y:.5},{x:.82,y:.55},
+ {x:.5,y:.82}
 ];
 const SPEED = 150; // px/秒
 const PICKUP_RADIUS = 30;
 const PAD = 24;
+const QUESTS_PER_STAGE = 3;
 
 const TUTORIAL_TEXT = [
  "ゆびで いきたい ばしょを タップして うごいてみよう!",
- "りんごの ところまで あるいて、ひろってみよう!",
- "がめんの すみの 🎒 メニューを あけてみよう!",
- "「やきりんご」を タップして つくってみよう!"
+ "『たこ』を あつめよう!まずは『た』を ひろってみて",
+ "つぎは『こ』を ひろおう!",
+ "がめんの すみの 🎯 クエストを あけてみよう!",
+ "『たこ』を タップして かんせいさせよう!"
 ];
 
 const G = { gameActive:false, playerX:0, playerY:0, spawnPoints:[] };
 
 function setToast(t,cls){ const m=$("toast"); m.textContent=t; m.className="padMsg "+(cls||""); }
 
-function renderTutorialBar(prog){
-  const bar=$("tutorialBar");
-  if(prog.stage!==1){ bar.classList.remove("show"); return; }
-  bar.textContent = TUTORIAL_TEXT[clamp(prog.tutorialStep,0,3)];
+function renderQuestBar(prog){
+  const bar=$("questBar");
+  if(!prog.tutorialDone){
+    bar.textContent = "🎯 " + TUTORIAL_TEXT[clamp(prog.tutorialStep,0,4)];
+  }else{
+    const remain = prog.quests.filter(q=>!q.done);
+    bar.textContent = remain.length
+      ? `🎯 クエスト: ${remain.map(q=>q.word).join("・")} (のこり${remain.length})`
+      : "🎯 クエスト たっせい!";
+  }
   bar.classList.add("show");
 }
 function updateMenuBtnState(prog){
-  $("menuBtn").disabled = (prog.stage===1 && prog.tutorialStep<2);
+  $("menuBtn").disabled = (!prog.tutorialDone && prog.tutorialStep<3);
 }
 
 /* ====== プレイヤーの いどう ====== */
@@ -452,12 +533,12 @@ $("field").addEventListener("click", (e)=>{
   const y = clamp(e.clientY-rect.top, PAD, rect.height-PAD);
   movePlayerTo(x,y);
   const prog = loadProgress();
-  if(prog.stage===1 && prog.tutorialStep===0){
-    prog.tutorialStep=1; saveProgress(prog); renderTutorialBar(prog);
+  if(!prog.tutorialDone && prog.tutorialStep===0){
+    prog.tutorialStep=1; saveProgress(prog); renderQuestBar(prog);
   }
 });
 
-/* ====== たね(食材)の ポップ・しゅうかく ====== */
+/* ====== もじタイルの ポップ・しゅうかく ====== */
 function clearSpawns(){
   (G.spawnPoints||[]).forEach(sp=>{ if(sp.el) sp.el.remove(); });
   G.spawnPoints = [];
@@ -466,7 +547,7 @@ function spawnItemAt(sp,item){
   const rect = $("field").getBoundingClientRect();
   const el = document.createElement("div");
   el.className = "spawnItem"+(item.rare?" rare":"");
-  el.innerHTML = item.emoji + (item.rare?'<span class="sparkle">✨</span>':"");
+  el.innerHTML = `<span class="tileGlyph">${item.char}</span>` + (item.rare?'<span class="sparkle">✨</span>':"");
   el.style.left = (rect.width*sp.defX)+"px";
   el.style.top = (rect.height*sp.defY)+"px";
   $("field").appendChild(el);
@@ -477,9 +558,10 @@ function tickSpawns(){
   const now = Date.now();
   G.spawnPoints.forEach(sp=>{
     if(sp.item) return;
+    if(!sp.chars || !sp.chars.length) return;
     if(now < sp.nextSpawnAt) return;
-    const item = sp.fixed ? INGREDIENTS.find(i=>i.kana===sp.fixed) : rollItem();
-    spawnItemAt(sp, item);
+    const ch = rand(sp.chars);
+    spawnItemAt(sp, {char:ch, rare:RARE_SET.has(ch)});
   });
 }
 setInterval(tickSpawns, 1000);
@@ -488,17 +570,21 @@ function collectItem(sp){
   const item = sp.item;
   if(sp.el) sp.el.remove();
   sp.item=null; sp.el=null;
-  if(!sp.fixed) sp.nextSpawnAt = Date.now() + 8000 + Math.random()*7000;
+  sp.nextSpawnAt = Date.now() + 6000 + Math.random()*5000;
   const inv = loadInventory();
-  inv[item.kana] = (inv[item.kana]||0)+1;
+  inv[item.char] = (inv[item.char]||0)+1;
   saveInventory(inv);
   sfxPickup(item.rare);
-  speak(item.name + "の「" + item.kana + "」だね!");
-  setToast(`「${item.name}」を ひろった!`, "good");
+  speak("「" + item.char + "」だね!");
+  setToast(`「${item.char}」を ひろった!`, "good");
   const prog = loadProgress();
-  if(prog.stage===1 && prog.tutorialStep===1){
-    prog.tutorialStep=2; saveProgress(prog);
-    renderTutorialBar(prog); updateMenuBtnState(prog);
+  if(!prog.tutorialDone){
+    if(item.char==="た" && prog.tutorialStep===1){
+      prog.tutorialStep=2; saveProgress(prog); renderQuestBar(prog);
+    }else if(item.char==="こ" && prog.tutorialStep===2){
+      prog.tutorialStep=3; saveProgress(prog);
+      renderQuestBar(prog); updateMenuBtnState(prog);
+    }
   }
 }
 setInterval(()=>{
@@ -513,119 +599,151 @@ setInterval(()=>{
   });
 }, 150);
 
-/* ====== クラフト(メニュー) ====== */
-function renderCraftMenu(){
+/* ====== クエスト(ことば かんせい) ====== */
+function renderQuestPanel(){
   const inv = loadInventory();
+  const prog = loadProgress();
   const invBox = $("invSummary"); invBox.innerHTML="";
   const held = Object.keys(inv).filter(k=>inv[k]>0);
   if(!held.length){
-    invBox.innerHTML = '<span class="invChip">まだ 食材が ないよ</span>';
+    invBox.innerHTML = '<span class="invChip">まだ もじが ないよ</span>';
   }else{
-    held.forEach(k=>{
-      const ing = INGREDIENTS.find(i=>i.kana===k);
+    held.forEach(ch=>{
       const chip=document.createElement("span");
-      chip.className="invChip";
-      chip.textContent = `${ing.emoji}×${inv[k]}`;
+      chip.className="invChip"+(RARE_SET.has(ch)?" rareChip":"");
+      chip.textContent = `${ch}×${inv[ch]}`;
       invBox.appendChild(chip);
     });
   }
-  const list=$("recipeList"); list.innerHTML="";
-  RECIPES.forEach(r=>{
-    const canCraft = Object.keys(r.need).every(k=>(inv[k]||0)>=r.need[k]);
+  const list=$("questList"); list.innerHTML="";
+  prog.quests.forEach((q,qi)=>{
+    const need = wordNeed(q.word);
+    const canComplete = !q.done && Object.keys(need).every(ch=>(inv[ch]||0)>=need[ch]);
     const row=document.createElement("div");
-    row.className="recipeRow"+(canCraft?" ready":"");
-    const needStr = Object.keys(r.need).map(k=>{
-      const ing=INGREDIENTS.find(i=>i.kana===k);
-      const have=(inv[k]||0)>=r.need[k];
-      return `<span class="${have?'got':'lack'}">${ing.emoji}×${r.need[k]}</span>`;
+    row.className="questRow"+(canComplete?" ready":"")+(q.done?" done":"");
+    const needStr = Object.keys(need).map(ch=>{
+      const have=(inv[ch]||0)>=need[ch];
+      return `<span class="${have?'got':'lack'}">${ch}×${need[ch]}</span>`;
     }).join(" ");
-    row.innerHTML = `<span class="recipeEmoji">${r.emoji}</span>
-      <span class="recipeInfo">${r.name}<br><span class="recipeNeed">${needStr} ⭐+${r.star}</span></span>
-      <button class="craftBtn" ${canCraft?"":"disabled"}>つくる</button>`;
-    row.querySelector(".craftBtn").onclick=()=>craftDish(r);
+    row.innerHTML = `<span class="questEmoji">${q.emoji}</span>
+      <span class="questInfo">${q.word}${q.done?" ✅":""}<br><span class="questNeed">${needStr}</span></span>
+      <button class="questBtn" ${canComplete?"":"disabled"}>${q.done?"できた!":"かんせい"}</button>`;
+    if(!q.done){
+      row.querySelector(".questBtn").onclick=()=>completeQuest(qi);
+    }else{
+      row.querySelector(".questBtn").disabled = true;
+    }
     list.appendChild(row);
   });
 }
-function craftDish(recipe){
-  const inv = loadInventory();
-  const canCraft = Object.keys(recipe.need).every(k=>(inv[k]||0)>=recipe.need[k]);
-  if(!canCraft) return;
-  Object.keys(recipe.need).forEach(k=>{ inv[k]-=recipe.need[k]; });
-  saveInventory(inv);
+function completeQuest(qi){
   const prog = loadProgress();
-  prog.dishesCrafted = (prog.dishesCrafted||0)+1;
-  if(recipe.rare) prog.hasCraftedRare = true;
+  const q = prog.quests[qi];
+  if(!q || q.done) return;
+  const inv = loadInventory();
+  const need = wordNeed(q.word);
+  const canComplete = Object.keys(need).every(ch=>(inv[ch]||0)>=need[ch]);
+  if(!canComplete) return;
+  Object.keys(need).forEach(ch=>{ inv[ch]-=need[ch]; });
+  saveInventory(inv);
+  q.done = true;
+  const usedRare = Object.keys(need).some(ch=>RARE_SET.has(ch));
+  if(usedRare) prog.hasUsedRare = true;
   saveProgress(prog);
-  addXp(recipe.star);
-  sfxCraft(!!recipe.rare);
-  speak(recipe.name + "の できあがり!");
+  addXp(5 + (usedRare?6:0));
+  sfxCraft(usedRare);
+  speak(q.word + "の できあがり!");
   updateStarLabel();
-  const cfg = STAGES[prog.stage-1];
-  if(prog.dishesCrafted >= cfg.clearGoal){
+  renderQuestBar(prog);
+  const allDone = prog.quests.every(x=>x.done);
+  if(allDone){
     $("craftOv").classList.remove("show");
-    showStageClear(cfg, recipe, prog);
+    finishStage(prog, q);
   }else{
-    renderCraftMenu();
-    setToast(`「${recipe.name}」を つくったよ! (${prog.dishesCrafted}/${cfg.clearGoal})`, "good");
+    renderQuestPanel();
+    setToast(`「${q.word}」を かんせい できたよ!`, "good");
   }
 }
 $("menuBtn").onclick=()=>{
   if($("menuBtn").disabled) return;
   const prog = loadProgress();
-  if(prog.stage===1 && prog.tutorialStep===2){
-    prog.tutorialStep=3; saveProgress(prog); renderTutorialBar(prog);
+  if(!prog.tutorialDone && prog.tutorialStep===3){
+    prog.tutorialStep=4; saveProgress(prog); renderQuestBar(prog);
   }
-  renderCraftMenu();
+  renderQuestPanel();
   $("craftOv").classList.add("show");
 };
 $("craftCloseBtn").onclick=()=>{ $("craftOv").classList.remove("show"); };
 
 /* ====== ステージクリア ====== */
-function showStageClear(cfg, recipe, prog){
+function finishStage(prog, lastQuest){
   G.gameActive = false;
   sfxFanfare();
-  $("clearEmoji").textContent = recipe.emoji;
+  $("clearEmoji").textContent = lastQuest.emoji;
   $("clearTitle").textContent = "STAGE CLEAR!";
-  if(cfg.tutorial){
-    $("clearDesc").textContent = "おめでとう!これで ステージ1 クリアだ!";
+  const wasTutorial = !prog.tutorialDone;
+  if(wasTutorial){
+    prog.tutorialDone = true;
+    saveProgress(prog);
+    $("clearDesc").textContent = "おめでとう!これで さいしょの クエスト クリアだ!";
   }else{
-    const rating = prog.hasCraftedRare ? "だいせいこう! ✨" : "せいこう!";
-    $("clearDesc").textContent = `${cfg.name}を たんけん できたね!${rating}`;
+    const cfg = STAGES[prog.stageIdx];
+    const rating = prog.hasUsedRare ? "だいせいこう! ✨" : "せいこう!";
+    const wasLast = prog.stageIdx === STAGES.length-1;
+    $("clearDesc").textContent = wasLast
+      ? `ぜんぶの ステージを ひとまわり できたよ!すごい! ${rating}`
+      : `ステージ ${cfg.id} クリア! ${rating}`;
   }
-  const nextCfg = STAGES[prog.stage];
-  if(nextCfg){
-    $("clearNextBtn").textContent = "▶ つぎの ステージへ";
-    $("clearNextBtn").onclick = ()=>{ advanceStage(prog); };
-  }else{
-    $("clearNextBtn").textContent = "🏠 ホームへ";
-    $("clearNextBtn").onclick = ()=>{ location.href="index.html"; };
-  }
+  $("clearNextBtn").textContent = "▶ つぎの クエストへ";
+  $("clearNextBtn").onclick = ()=>{
+    $("clearOv").classList.remove("show");
+    if(wasTutorial){
+      runStage(prog);
+    }else{
+      advanceStage(prog);
+    }
+  };
   $("clearOv").classList.add("show");
 }
 function advanceStage(prog){
-  $("clearOv").classList.remove("show");
-  prog.stage += 1;
-  prog.dishesCrafted = 0;
-  prog.hasCraftedRare = false;
-  prog.tutorialStep = 0;
+  prog.stageIdx = (prog.stageIdx+1) % STAGES.length;
+  prog.hasUsedRare = false;
   saveProgress(prog);
-  initStage(prog.stage);
+  runStage(prog);
 }
 
 /* ====== ステージの じゅんび ====== */
-function initStage(n){
-  const cfg = STAGES[n-1];
-  $("field").style.setProperty("--floorA", cfg.floorA);
-  $("field").style.setProperty("--floorB", cfg.floorB);
+function setupTutorialStage(prog){
+  applyBiome(0);
+  prog.quests = [{word:"たこ", emoji:"🐙", done:false}];
+  saveProgress(prog);
+  G.spawnPoints = [
+    {defX:.35, defY:.4, item:null, el:null, nextSpawnAt:0, chars:["た"]},
+    {defX:.65, defY:.55, item:null, el:null, nextSpawnAt:0, chars:["こ"]}
+  ];
+}
+function setupRealStage(prog){
+  const cfg = STAGES[prog.stageIdx];
+  applyBiome(prog.stageIdx);
+  const words = pickQuestWords(cfg, QUESTS_PER_STAGE);
+  prog.quests = words.map(w=>({word:w.w, emoji:w.e, done:false}));
+  saveProgress(prog);
+  const neededSet = new Set();
+  prog.quests.forEach(q=>{ for(const ch of q.word) neededSet.add(ch); });
+  const needed = Array.from(neededSet);
+  G.spawnPoints = SPAWN_POINTS_DEF.map(pt=>({defX:pt.x, defY:pt.y, item:null, el:null, nextSpawnAt:0, chars:[]}));
+  needed.forEach((ch,i)=>{ G.spawnPoints[i % G.spawnPoints.length].chars.push(ch); });
+  G.spawnPoints.forEach(sp=>{ if(sp.chars.length) sp.nextSpawnAt = Date.now()+Math.random()*3000; });
+}
+function runStage(prog){
   clearSpawns();
-  if(cfg.tutorial){
-    G.spawnPoints = [{defX:.5, defY:.4, item:null, el:null, nextSpawnAt:0, fixed:"り"}];
+  if(!prog.tutorialDone){
+    setupTutorialStage(prog);
   }else{
-    G.spawnPoints = SPAWN_POINTS_DEF.map(p=>({defX:p.x, defY:p.y, item:null, el:null, nextSpawnAt: Date.now()+Math.random()*4000}));
+    setupRealStage(prog);
   }
-  const prog = loadProgress();
   updateMenuBtnState(prog);
-  renderTutorialBar(prog);
+  renderQuestBar(prog);
   updateStarLabel();
   G.gameActive = true;
   requestAnimationFrame(()=>{
@@ -648,7 +766,7 @@ $("startBtn").onclick=()=>{
   $("startOv").classList.remove("show");
   startBgm();
   const prog = loadProgress();
-  initStage(prog.stage||1);
+  runStage(prog);
 };
 </script>
 </body>
