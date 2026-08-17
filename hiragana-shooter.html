@@ -563,6 +563,15 @@ function speak(text, rate){
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }catch(e){}
 }
+// もじが よめない子にも「どこが あなか」を おとで つたえる(こたえの もじは いわない)
+function positionPhrase(blankIdx, wordLen){
+  if(blankIdx===0) return "さいしょの もじ";
+  if(blankIdx===wordLen-1) return "さいごの もじ";
+  return "まんなかの もじ";
+}
+function speakQuestion(word, blankIdx){
+  speak(word + "の " + positionPhrase(blankIdx, word.length) + "は どれかな");
+}
 const rand = a => a[Math.floor(Math.random()*a.length)];
 
 /* ====== こうかおん ====== */
@@ -734,7 +743,7 @@ function spawnEnemy(){
   G.enemy = {el:en, y:0, word:item.w, emoji:item.e, blankIdx, hp:1, maxHp:1,
     body:zodiacBot(zEntry.bg,zEntry.panel,zEntry.back,zEntry.front), zodiacId:zEntry.id};
   renderEnemy();
-  speak(item.w);
+  speakQuestion(item.w, blankIdx);
   setPadMsg(`「${item.w}」の あなに はいる もじは どれかな?`,"");
   makeChoices();
   resetPad();
@@ -752,7 +761,7 @@ function renderEnemy(){
     <div class="wordRow"><span class="emojiHint">${E.emoji}</span>${cells}<button class="wordSpeak">🔊</button></div>
     <div class="body">${E.body}</div>
     <div class="hp">${hp}</div>`;
-  E.el.querySelector(".wordSpeak").onclick = ev => { ev.stopPropagation(); speak(E.word); };
+  E.el.querySelector(".wordSpeak").onclick = ev => { ev.stopPropagation(); speakQuestion(E.word, E.blankIdx); };
   const blank = E.el.querySelector("[data-blank]");
   if(blank) blank.onclick = fireBullet;
 }
