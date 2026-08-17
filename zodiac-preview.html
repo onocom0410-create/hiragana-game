@@ -42,14 +42,16 @@ document.addEventListener('gestureend', function(e){ e.preventDefault(); });
 document.addEventListener('touchmove', function(e){ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
 // おなじ ばしょへの すばやい 連続タップだけを ダブルタップズームとして ふせぐ
 // (タップした場所が ちがう時は はんおうを さまたげない)
-let __lastTapTime = 0, __lastTapX = 0, __lastTapY = 0;
+let __lastTapTime = 0, __lastTapX = 0, __lastTapY = 0, __lastTapTarget = null;
 document.addEventListener('touchend', function(e){
   const t = e.changedTouches && e.changedTouches[0];
   if(!t) return;
   const now = Date.now();
   const dx = Math.abs(t.clientX - __lastTapX), dy = Math.abs(t.clientY - __lastTapY);
-  if(now - __lastTapTime <= 300 && dx < 30 && dy < 30) e.preventDefault();
-  __lastTapTime = now; __lastTapX = t.clientX; __lastTapY = t.clientY;
+  // おなじ要素への 連続タップの時だけ ふせぐ(ちがうボタンが 同じ場所に
+  // 入れかわった時に、正当なタップまで 誤爆させないため)
+  if(now - __lastTapTime <= 300 && dx < 30 && dy < 30 && e.target === __lastTapTarget) e.preventDefault();
+  __lastTapTime = now; __lastTapX = t.clientX; __lastTapY = t.clientY; __lastTapTarget = e.target;
 }, {passive:false});
 </script>
 <a class="back" href="index.html">⬅ もどる</a>
