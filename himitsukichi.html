@@ -67,8 +67,10 @@
   .charCard.fav{border-color:var(--gold);}
   .charCard .iconWrap{position:relative; width:48px; height:48px; margin:0 auto;}
   .charCard .iconWrap svg{width:100%; height:100%; display:block;}
-  .charCard.lv2 .iconWrap svg{filter:drop-shadow(0 0 5px #FFD86B);}
-  .charCard.lv3 .iconWrap svg{filter:drop-shadow(0 0 9px #FFD86B) brightness(1.08);}
+  .charCard.lv2 .iconWrap svg{filter:drop-shadow(0 0 4px #FFD86B);}
+  .charCard.lv3 .iconWrap svg{filter:drop-shadow(0 0 6px #FFD86B) brightness(1.04);}
+  .charCard.lv4 .iconWrap svg{filter:drop-shadow(0 0 8px #FFB13B) brightness(1.08);}
+  .charCard.lv5 .iconWrap svg{filter:drop-shadow(0 0 12px #FFB13B) brightness(1.12) saturate(1.2);}
   .charCard .lvBadge{position:absolute; top:-6px; right:-6px; font-size:15px;}
   .charCard .cName{font-size:10px; font-weight:900; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .charCard .cLv{font-size:9px; opacity:.7;}
@@ -164,6 +166,7 @@ document.addEventListener('touchmove', function(e){ if(e.touches.length>1) e.pre
 
 <script>
 const $ = id => document.getElementById(id);
+const rand = a => a[Math.floor(Math.random()*a.length)];
 
 /* ====== こうかおん(ガチャ演出用) ====== */
 let audioCtx=null;
@@ -228,7 +231,7 @@ const WORDS = [
  {w:"ちず",e:"🗺️"},{w:"てがみ",e:"✉️"},{w:"ひよこ",e:"🐤"},{w:"へび",e:"🐍"},
  {w:"むぎ",e:"🌾"},{w:"めがね",e:"👓"},{w:"もも",e:"🍑"},{w:"ゆき",e:"❄️"},
  {w:"よる",e:"🌃"},{w:"れもん",e:"🍋"},{w:"ろうそく",e:"🕯️"},{w:"わに",e:"🐊"},
- {w:"かがみ",e:"🪞"},{w:"かぐ",e:"🪑"},{w:"げた",e:"👡"},{w:"ひざ",e:"🦵"},
+ {w:"かがみ",e:"🪞"},{w:"かぐ",e:"🛋️"},{w:"げた",e:"🩴"},{w:"ひざ",e:"🦵"},
  {w:"かぜ",e:"💨"},{w:"でんわ",e:"☎️"},{w:"どんぐり",e:"🌰"},{w:"えび",e:"🦐"},
  {w:"ぶた",e:"🐷"},{w:"かべ",e:"🧱"},{w:"ぼうし",e:"👒"},{w:"えんぴつ",e:"✏️"},
  {w:"てんぷら",e:"🍤"},{w:"ぺんぎん",e:"🐧"},{w:"たんぽぽ",e:"🌼"}
@@ -352,8 +355,19 @@ const CHAR_ROSTER = [
  ...ZODIAC.map(z=>({id:"zodiac_"+z.id, name:z.name, svg:()=>zodiacBot(z.bg,z.panel,z.back,z.front)})),
  ...INK_COLORS.map(c=>({id:"mascot_"+c.id, name:c.name, svg:()=>mascotFace(c.hex)}))
 ];
-function levelFor(xp){ if(xp>=15) return 3; if(xp>=5) return 2; return 1; }
-function levelBadge(lv){ return lv>=3?"👑":(lv>=2?"✨":""); }
+const LV_THRESHOLDS = [0,10,25,45,70]; // レベル1〜5の かいし xp。5は じょうげんなし
+const LV_MAX = 5;
+function levelFor(xp){
+  for(let lv=LV_MAX; lv>=1; lv--){ if(xp>=LV_THRESHOLDS[lv-1]) return lv; }
+  return 1;
+}
+function levelBadge(lv){
+  if(lv>=5) return "👑";
+  if(lv>=4) return "💫";
+  if(lv>=3) return "🌟";
+  if(lv>=2) return "✨";
+  return "";
+}
 
 /* ====== 保存データ の よみこみ ====== */
 function loadJSON(key, fallback){
@@ -391,8 +405,8 @@ let favorites = loadFavorites();
 
 /* ====== キャラクター いくせい ====== */
 function xpProgress(xp, lv){
-  if(lv>=3) return 1;
-  const lo = lv===1?0:5, hi = lv===1?5:15;
+  if(lv>=LV_MAX) return 1;
+  const lo = LV_THRESHOLDS[lv-1], hi = LV_THRESHOLDS[lv];
   return Math.min(1, Math.max(0, (xp-lo)/(hi-lo)));
 }
 let feedingGem = null; // {id, icon, name} えらんでいる💎(nullなら通常モード)
@@ -406,7 +420,7 @@ function renderCharGrid(){
     const d=document.createElement("div");
     d.className="charCard lv"+lv+(isFav?" fav":"");
     d.innerHTML=`<div class="iconWrap">${c.svg()}${lv>1?`<span class="lvBadge">${levelBadge(lv)}</span>`:""}</div>
-      <div class="cName">${c.name}</div><div class="cLv">Lv${lv}${lv>=3?" MAX":""}</div>
+      <div class="cName">${c.name}</div><div class="cLv">Lv${lv}${lv>=LV_MAX?" MAX":""}</div>
       <div class="xpBar"><i style="width:${Math.round(xpProgress(xp,lv)*100)}%"></i></div>`;
     d.onclick=()=>onCharCardClick(c.id);
     box.appendChild(d);
@@ -424,12 +438,17 @@ function useGemOnCharacter(gemId, charId){
   refreshCollection();
   const g = collection.gems[gemId];
   if(!g || g.count<=0){ feedingGem=null; renderCharGrid(); renderGemGrid(); return; }
+  const c = CHAR_ROSTER.find(r=>r.id===charId);
+  const curXp = (growth[charId]&&growth[charId].xp)||0;
+  if(levelFor(curXp)>=LV_MAX){
+    $("gachaResult").textContent = `${c?c.name:""}は もう MAXだよ!ほかの子に あげてね`;
+    return; // 💎は消費しない。feedingGemは維持して べつの子を えらべるように
+  }
   g.count--;
   saveCollection(collection);
   if(!growth[charId]) growth[charId]={xp:0};
   growth[charId].xp += 5;
   saveGrowth(growth);
-  const c = CHAR_ROSTER.find(r=>r.id===charId);
   $("gachaResult").textContent = `💎を ${c?c.name:""}に あげた!⭐+5けいけんち`;
   feedingGem = null;
   renderCharGrid();
@@ -525,6 +544,8 @@ const GACHA_COST = 30;
 $("gachaCostLbl").textContent = GACHA_COST;
 function updateGachaBalance(){ refreshCollection(); $("gachaXpLive").textContent = collection.xp; }
 updateGachaBalance();
+let gachaRevealTimer = null, gachaRevealed = false;
+function closeGachaOv(){ $("gachaOv").classList.remove("show"); }
 function pullGacha(){
   refreshCollection();
   if(collection.xp < GACHA_COST){
@@ -532,6 +553,7 @@ function pullGacha(){
     updateGachaBalance();
     return;
   }
+  clearTimeout(gachaRevealTimer); // まえの けっかひょうじが のこっていたら キャンセル
   $("gachaResult").textContent = "";
   collection.xp -= GACHA_COST;
   const r = Math.random();
@@ -555,21 +577,26 @@ function pullGacha(){
   renderGemGrid(); renderEquipGrid();
 
   /* ==== 2だんかいの えんしゅつ: ①なぞの カプセルが ゆれる →②ポン!と ひらいて けっかを みせる ==== */
+  gachaRevealed = false;
   $("capsule").classList.remove("pop");
   $("capsule").textContent = "🎁";
   $("gachaTitle").textContent = "なにが でるかな…";
   $("gachaDesc").textContent = "";
   $("gachaOv").classList.remove("show"); void $("gachaOv").offsetWidth; $("gachaOv").classList.add("show");
   sfxShake();
-  setTimeout(()=>{
+  gachaRevealTimer = setTimeout(()=>{
     $("capsule").textContent = icon;
     $("capsule").classList.add("pop");
     $("gachaTitle").textContent = title;
     $("gachaDesc").textContent = desc;
     sfxReveal();
+    gachaRevealed = true;
+    gachaRevealTimer = null;
   }, 1000);
 }
-$("gachaCloseBtn").onclick = ()=>{ $("gachaOv").classList.remove("show"); };
+// けっかが でたあとは、オーバーレイの どこを タップしても とじられる(OKボタン以外もOK)
+$("gachaOv").onclick = ()=>{ if(gachaRevealed) closeGachaOv(); };
+$("gachaCloseBtn").onclick = (e)=>{ e.stopPropagation(); closeGachaOv(); };
 $("gachaPullBtn").onclick = pullGacha;
 
 /* ====== ステージ しんちょく ====== */
