@@ -11,7 +11,7 @@
     --guide:#D2E0D5; --accent:#FF7B54; --star:#FFC24B; --ok:#5FAE7C;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; height:100%; overflow:hidden;}
+  html,body{margin:0; height:100%; height:var(--vvh,100%); overflow:hidden;}
   body{
     position:fixed; inset:0; width:100%;
     font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","BIZ UDGothic",sans-serif;
@@ -107,7 +107,7 @@
   .msg{min-height:26px; margin-top:8px; font-size:16px; font-weight:700; text-align:center;}
   .msg.good{color:var(--ok);} .msg.retry{color:var(--accent);}
 
-  .controls{display:flex; gap:12px; margin-top:8px; width:100%;}
+  .controls{display:flex; gap:12px; margin-top:8px; margin-bottom:env(safe-area-inset-bottom); width:100%;}
   .ctrlBtn{
     flex:1; border:none; border-radius:18px; padding:13px 0;
     font-family:inherit; font-size:16px; font-weight:900; cursor:pointer;
@@ -217,6 +217,19 @@
 </section>
 
 <script>
+/* ====== じっさいに みえている たかさ(LINEなどの アプリ内ブラウザの
+   独自ツールバーぶんが vh/dvh に はんえいされないケースの ほけん) ====== */
+function setVvh(){
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty("--vvh", h+"px");
+}
+setVvh();
+window.addEventListener("resize", setVvh);
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", setVvh);
+  window.visualViewport.addEventListener("scroll", setVvh);
+}
+
 /* =========================================================
    文字データ:kana-svg-data (animCJK由来, LGPL) を実行時に取得
    - strokes: 画ごとの輪郭パス(結び付きの画は "3a","3b" に分割)

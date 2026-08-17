@@ -18,7 +18,7 @@
     color:var(--ink); display:flex; justify-content:center;
     overscroll-behavior:none; touch-action:manipulation; overflow:hidden;
   }
-  #app{width:100%; max-width:480px; height:100dvh; display:flex; flex-direction:column; position:relative;}
+  #app{width:100%; max-width:480px; height:100vh; height:var(--vvh,100vh); display:flex; flex-direction:column; position:relative;}
 
   .hud{display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-weight:900; font-size:14px;}
   .iconBtn{border:none; background:rgba(0,0,0,.08); color:var(--ink); border-radius:12px;
@@ -36,7 +36,7 @@
   .tile.pop{animation:tilePop .45s;}
   @keyframes tilePop{0%{transform:scale(.5); opacity:.4;}60%{transform:scale(1.12);}100%{transform:scale(1); opacity:1;}}
 
-  #bottom{background:rgba(255,255,255,.95); border-radius:22px 22px 0 0; padding:10px 14px 16px;}
+  #bottom{background:rgba(255,255,255,.95); border-radius:22px 22px 0 0; padding:10px 14px calc(16px + env(safe-area-inset-bottom));}
   .prompt{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px;}
   .promptEmoji{font-size:30px;}
   .promptWord{font-size:26px; font-weight:900; letter-spacing:2px;}
@@ -177,6 +177,19 @@
 </div>
 
 <script>
+/* ====== じっさいに みえている たかさ(LINEなどの アプリ内ブラウザの
+   独自ツールバーぶんが vh/dvh に はんえいされないケースの ほけん) ====== */
+function setVvh(){
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty("--vvh", h+"px");
+}
+setVvh();
+window.addEventListener("resize", setVvh);
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", setVvh);
+  window.visualViewport.addEventListener("scroll", setVvh);
+}
+
 const $ = id => document.getElementById(id);
 const rand = a => a[Math.floor(Math.random()*a.length)];
 
