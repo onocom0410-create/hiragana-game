@@ -383,17 +383,22 @@ function knownChars(){
 }
 
 /* ====== すすみぐあい・もちもの(オートセーブ) ====== */
-const PROGRESS_KEY = "hiragana_craft_progress_v1";
+// v2: 前バージョン(食材クラフト方式)の hiragana_craft_progress_v1 とは
+// 形がちがうため、あたらしいキーに わける(古いデータを 誤って よみこまないため)
+const PROGRESS_KEY = "hiragana_craft_progress_v2";
 function loadProgress(){
   try{
     const raw = localStorage.getItem(PROGRESS_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw){
+      const p = JSON.parse(raw);
+      if(p && typeof p.stageIdx === "number" && Array.isArray(p.quests)) return p;
+    }
   }catch(e){}
   return {tutorialDone:false, tutorialStep:0, stageIdx:0, quests:[], hasUsedRare:false};
 }
 function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
 
-const INV_KEY = "hiragana_craft_inventory_v1";
+const INV_KEY = "hiragana_craft_inventory_v2";
 function loadInventory(){
   try{
     const raw = localStorage.getItem(INV_KEY);
@@ -753,9 +758,17 @@ function runStage(prog){
   renderQuestBar(prog);
   updateStarLabel();
   G.gameActive = true;
+  placePlayerWhenReady();
+}
+function placePlayerWhenReady(){
   requestAnimationFrame(()=>{
     const rect = $("field").getBoundingClientRect();
-    placePlayerInitial(rect.width*.5, rect.height*.75);
+    if(rect.width > 0 && rect.height > 0){
+      placePlayerInitial(rect.width*.5, rect.height*.75);
+    }else{
+      // レイアウトが まだ できていない時の ほけん(つぎのフレームで もう一度)
+      placePlayerWhenReady();
+    }
   });
 }
 
