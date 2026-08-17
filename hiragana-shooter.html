@@ -166,12 +166,6 @@ document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
 document.addEventListener('gestureend', function(e){ e.preventDefault(); });
 document.addEventListener('touchmove', function(e){ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
-let __lastTouchEnd = 0;
-document.addEventListener('touchend', function(e){
-  const now = Date.now();
-  if(now - __lastTouchEnd <= 300) e.preventDefault();
-  __lastTouchEnd = now;
-}, false);
 </script>
 <div id="app">
 
