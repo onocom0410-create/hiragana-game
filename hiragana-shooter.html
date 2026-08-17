@@ -392,7 +392,18 @@ const COLLECTION_KEY = "hiragana_collection_v1";
 function loadCollection(){
   try{
     const raw = localStorage.getItem(COLLECTION_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw){
+      const c = JSON.parse(raw);
+      // 💎を むかしの 真偽値(もってる/もってない) から {total,count} に かるく いこう
+      const g = {};
+      for(const id in (c.gems||{})){
+        const v = c.gems[id];
+        g[id] = (v && typeof v==="object") ? {total:v.total||0, count:v.count||0} : {total:v?1:0, count:v?1:0};
+      }
+      c.gems = g;
+      if(!c.equips) c.equips = {pen:0, shield:0, charm:0};
+      return c;
+    }
   }catch(e){}
   return { xp:0, gems:{}, equips:{pen:0, shield:0, charm:0} };
 }
@@ -402,6 +413,25 @@ function persistCollection(){
   c.xp=G.xp; c.gems=G.gems; c.equips=G.equips;
   saveCollection(c);
 }
+
+/* ====== キャラクター いくせい(十二支ロボ+ぬりぬりマスコット、軽量版レベルアップ)
+   既存の保存キーには一切さわらず、新しいキーにだけ追加していく(過去のセーブを壊さない) ====== */
+const GROWTH_KEY = "hiragana_character_growth_v1";
+function loadGrowth(){
+  try{
+    const raw = localStorage.getItem(GROWTH_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {};
+}
+function saveGrowth(g){ try{ localStorage.setItem(GROWTH_KEY, JSON.stringify(g)); }catch(e){} }
+function addCharXp(id, amount){
+  const g = loadGrowth();
+  if(!g[id]) g[id] = {xp:0};
+  g[id].xp += amount;
+  saveGrowth(g);
+}
+function levelFor(xp){ if(xp>=15) return 3; if(xp>=5) return 2; return 1; }
 
 /* ====== もじ べつ せいせき(全ゲーム共通・永続。マイプロフィールの ずかんに つかう) ====== */
 const CHAR_STATS_KEY = "hiragana_char_stats_v1";
@@ -500,7 +530,6 @@ const ZODIAC = [
   back:'<circle cx="28" cy="30" r="9" fill="#C97C6D" stroke="#2b2b3a" stroke-width="3"/><circle cx="72" cy="30" r="9" fill="#C97C6D" stroke="#2b2b3a" stroke-width="3"/>',
   front:'<ellipse cx="50" cy="62" rx="9" ry="6" fill="#F0A58C" stroke="#2b2b3a" stroke-width="2"/><circle cx="46" cy="62" r="1.6" fill="#2b2b3a"/><circle cx="54" cy="62" r="1.6" fill="#2b2b3a"/><path d="M40 66 L34 74 L40 72 Z" fill="#fff" stroke="#2b2b3a" stroke-width="1.5" stroke-linejoin="round"/><path d="M60 66 L66 74 L60 72 Z" fill="#fff" stroke="#2b2b3a" stroke-width="1.5" stroke-linejoin="round"/>'}
 ];
-const ENEMIES = ZODIAC.map(z=>zodiacBot(z.bg,z.panel,z.back,z.front));
 const GEMS = [
  {id:"r",icon:"🔴",name:"あかだま"},{id:"o",icon:"🟠",name:"だいだいだま"},
  {id:"y",icon:"🟡",name:"きいろだま"},{id:"g",icon:"🟢",name:"みどりだま"},
@@ -682,7 +711,7 @@ function updateHud(){
   const hud = $("gemHud"); hud.innerHTML = "";
   GEMS.forEach(g=>{
     const s = document.createElement("span");
-    if(G.gems[g.id]){ s.classList.add("got"); s.textContent = g.icon; }
+    if(G.gems[g.id] && G.gems[g.id].total>0){ s.classList.add("got"); s.textContent = g.icon; }
     hud.appendChild(s);
   });
   $("gachaBtn").disabled = G.xp < GACHA_COST;
@@ -708,7 +737,9 @@ function spawnEnemy(){
   en.className = "enemy";
   en.style.top = "0%";
   $("field").appendChild(en);
-  G.enemy = {el:en, y:0, word:item.w, emoji:item.e, blankIdx, hp:1, maxHp:1, body:rand(ENEMIES)};
+  const zEntry = rand(ZODIAC);
+  G.enemy = {el:en, y:0, word:item.w, emoji:item.e, blankIdx, hp:1, maxHp:1,
+    body:zodiacBot(zEntry.bg,zEntry.panel,zEntry.back,zEntry.front), zodiacId:zEntry.id};
   renderEnemy();
   speak(item.w);
   setPadMsg(`「${item.w}」の あなに はいる もじは どれかな?`,"");
@@ -988,6 +1019,7 @@ function hitEnemy(){
   sfxCorrect();
   const E=G.enemy;
   recordCharResult(E.word[E.blankIdx], !G.roundHadMistake);
+  addCharXp("zodiac_"+E.zodiacId, 2);
   E.el.classList.add("hitAnim");
   effectAt(E.el.getBoundingClientRect(),"💥","boom");
   speak(E.word + "!");
@@ -1090,15 +1122,11 @@ $("gachaBtn").onclick=()=>{
   let icon,title,desc;
   if(r<.55){
     const gem=rand(GEMS);
-    if(G.gems[gem.id]){
-      G.xp+=10;
-      icon=gem.icon; title=gem.name+"(かぶり)"; desc="もう もってたから ⭐10に へんしん!";
-    }else{
-      G.gems[gem.id]=true;
-      icon=gem.icon; title=gem.name+" ゲット!";
-      const got=Object.keys(G.gems).length;
-      desc=`💎 ${got}/6 しゅるい あつまったよ!`;
-    }
+    if(!G.gems[gem.id]) G.gems[gem.id]={total:0,count:0};
+    G.gems[gem.id].total++; G.gems[gem.id].count++;
+    const gotKinds = GEMS.filter(g=>G.gems[g.id]&&G.gems[g.id].total>0).length;
+    icon=gem.icon; title=gem.name+" ゲット!";
+    desc=`💎 ${gotKinds}/6 しゅるい あつまったよ!(ひみつきちで キャラに あげられるよ)`;
   }else if(r<.8){
     const eq=rand(EQUIPS);
     G.equips[eq.id]++;
@@ -1123,8 +1151,9 @@ $("gachaClose").onclick=()=>{
 $("collBtn").onclick=()=>{
   const list=$("collList"); list.innerHTML="";
   GEMS.forEach(g=>{
+    const info = G.gems[g.id];
     const d=document.createElement("div"); d.className="collItem";
-    d.innerHTML=`<b>${G.gems[g.id]?g.icon:"❔"}</b>${g.name}`;
+    d.innerHTML=`<b>${info&&info.total>0?g.icon:"❔"}</b>${g.name}${info&&info.count>0?" ×"+info.count:""}`;
     list.appendChild(d);
   });
   EQUIPS.forEach(eq=>{

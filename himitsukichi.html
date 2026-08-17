@@ -44,9 +44,11 @@
   .dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
 
   .collGrid{display:flex; flex-wrap:wrap; gap:10px;}
-  .collItem{background:rgba(255,255,255,.08); border-radius:14px; padding:8px 10px; font-size:12px; font-weight:700; text-align:center; min-width:70px;}
+  .collItem{background:rgba(255,255,255,.08); border-radius:14px; padding:8px 10px; font-size:12px; font-weight:700; text-align:center; min-width:70px; cursor:pointer; border:2px solid transparent;}
   .collItem b{font-size:24px; display:block;}
-  .collItem.locked{opacity:.35;}
+  .collItem.locked{opacity:.35; cursor:default;}
+  .collItem.selected{border-color:var(--gold); background:rgba(255,200,75,.18);}
+  .feeding .charCard{outline:2px dashed var(--gold); outline-offset:2px;}
 
   .stageRow{display:flex; align-items:center; gap:10px; padding:6px 0; font-size:13px; font-weight:700;}
   .stageBadge{width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center;
@@ -55,6 +57,35 @@
   .stageBadge.locked{background:rgba(255,255,255,.1); color:rgba(255,255,255,.4);}
   .bar{flex:1; height:8px; border-radius:4px; background:rgba(255,255,255,.12); overflow:hidden;}
   .bar i{display:block; height:100%; background:var(--ok);}
+
+  .favStrip{display:flex; gap:10px; justify-content:center; min-height:56px; align-items:center; margin-bottom:12px;}
+  .favStrip svg{width:48px; height:48px;}
+  .favEmpty{font-size:11px; opacity:.6; text-align:center;}
+  .charGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+  .charCard{background:rgba(255,255,255,.06); border-radius:14px; padding:8px 4px; text-align:center; cursor:pointer; border:3px solid transparent;}
+  .charCard.fav{border-color:var(--gold);}
+  .charCard .iconWrap{position:relative; width:48px; height:48px; margin:0 auto;}
+  .charCard .iconWrap svg{width:100%; height:100%; display:block;}
+  .charCard.lv2 .iconWrap svg{filter:drop-shadow(0 0 5px #FFD86B);}
+  .charCard.lv3 .iconWrap svg{filter:drop-shadow(0 0 9px #FFD86B) brightness(1.08);}
+  .charCard .lvBadge{position:absolute; top:-6px; right:-6px; font-size:15px;}
+  .charCard .cName{font-size:10px; font-weight:900; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .charCard .cLv{font-size:9px; opacity:.7;}
+  .growthNote{font-size:11px; opacity:.75; text-align:center; margin-top:8px; line-height:1.6;}
+  .xpBar{width:100%; height:5px; border-radius:3px; background:rgba(255,255,255,.15); overflow:hidden; margin-top:4px;}
+  .xpBar i{display:block; height:100%; background:var(--gold);}
+  .gachaBalance{text-align:center; font-size:12px; font-weight:900; margin:2px 0 10px; opacity:.9;}
+  .overlay{
+    position:fixed; inset:0; z-index:99998; background:rgba(10,18,36,.92);
+    display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px;
+  }
+  .overlay.show{display:flex;}
+  .overlay h2{font-size:22px; margin:8px 0;}
+  .overlay p{font-size:14px; font-weight:700; margin:4px 0 18px;}
+  .overlay button{border:none; border-radius:18px; background:var(--gold); color:#5A3D00;
+    font-family:inherit; font-weight:900; font-size:15px; padding:12px 30px; cursor:pointer;}
+  .capsule{font-size:64px; animation:capShake 1s;}
+  @keyframes capShake{0%,100%{transform:rotate(0);}20%{transform:rotate(-15deg);}40%{transform:rotate(15deg);}60%{transform:rotate(-10deg);}80%{transform:rotate(10deg);}}
 </style>
 </head>
 <body>
@@ -105,7 +136,18 @@ document.addEventListener('touchend', function(e){
   </div>
 
   <div class="card">
+    <h2>🌟 キャラクター いくせい</h2>
+    <div class="favStrip" id="favStrip"></div>
+    <div class="charGrid" id="charGrid"></div>
+    <p class="growthNote">シューターで たおしたり、ぬりぬりで つかったりすると LVが あがるよ。タップすると 3体まで「おきにいり」に できるよ。</p>
+  </div>
+
+  <div class="card">
     <h2>🎰 ガチャ コレクション</h2>
+    <button class="iconBtn" id="gachaPullBtn" style="width:100%; padding:12px; font-size:14px; margin-bottom:6px;">🎰 ガチャを ひく(⭐<span id="gachaCostLbl">30</span>)</button>
+    <p class="gachaBalance">いまの ⭐: <span id="gachaXpLive">0</span></p>
+    <p id="gachaResult" style="font-size:12px; font-weight:900; min-height:18px; text-align:center; color:var(--gold);"></p>
+    <p class="growthNote" style="margin-top:0;">💎を タップすると、そのしゅるいを キャラに あげて LVアップさせられるよ</p>
     <div class="collGrid" id="gemGrid"></div>
     <div class="collGrid" id="equipGrid" style="margin-top:10px;"></div>
   </div>
@@ -114,6 +156,13 @@ document.addEventListener('touchend', function(e){
     <h2>🗺 ステージ しんちょく</h2>
     <div id="stageList"></div>
   </div>
+</div>
+
+<div class="overlay" id="gachaOv">
+  <div class="capsule" id="capsule">🎰</div>
+  <h2 id="gachaTitle">なにが でるかな…</h2>
+  <p id="gachaDesc"></p>
+  <button id="gachaCloseBtn">OK!</button>
 </div>
 
 <script>
@@ -177,6 +226,88 @@ const EQUIPS = [
  {id:"charm",icon:"🌟",name:"ほしの おまもり"}
 ];
 
+/* ====== キャラクター いくせい の もとデータ(十二支ロボ + ぬりぬりマスコット) ====== */
+function zodiacBot(bg,panel,back,front){
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    ${back||""}
+    <ellipse cx="50" cy="90" rx="20" ry="5" fill="rgba(0,0,0,.25)"/>
+    <rect x="30" y="78" width="10" height="14" rx="4" fill="#3a3a4a"/>
+    <rect x="60" y="78" width="10" height="14" rx="4" fill="#3a3a4a"/>
+    <circle cx="50" cy="52" r="32" fill="${bg}" stroke="#2b2b3a" stroke-width="3"/>
+    <circle cx="38" cy="38" r="7" fill="rgba(255,255,255,.35)"/>
+    <rect x="38" y="62" width="24" height="14" rx="6" fill="${panel}" stroke="#2b2b3a" stroke-width="2"/>
+    <circle cx="50" cy="69" r="3" fill="#fff2b0"/>
+    <ellipse cx="40" cy="50" rx="7" ry="9" fill="#fff"/>
+    <ellipse cx="60" cy="50" rx="7" ry="9" fill="#fff"/>
+    <circle cx="41" cy="52" r="3.4" fill="#232333"/>
+    <circle cx="61" cy="52" r="3.4" fill="#232333"/>
+    <circle cx="50" cy="16" r="4" fill="#e4483f"/>
+    <rect x="48.5" y="18" width="3" height="10" fill="#8a8a9a"/>
+    ${front||""}
+  </svg>`;
+}
+const ZODIAC = [
+ {id:"rat",name:"ねずみ",bg:"#8891A6",panel:"#545C72",
+  back:'<circle cx="27" cy="26" r="11" fill="#8891A6" stroke="#2b2b3a" stroke-width="3"/><circle cx="27" cy="26" r="5" fill="#FFD9E6"/><circle cx="73" cy="26" r="11" fill="#8891A6" stroke="#2b2b3a" stroke-width="3"/><circle cx="73" cy="26" r="5" fill="#FFD9E6"/>',
+  front:'<path d="M80 78 q14 -4 10 -18" stroke="#8891A6" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M30 56 L14 52 M30 60 L14 62 M70 56 L86 52 M70 60 L86 62" stroke="#2b2b3a" stroke-width="2" stroke-linecap="round"/>'},
+ {id:"ox",name:"うし",bg:"#B0805A",panel:"#7A5636",
+  back:'<path d="M25 24 Q14 8 30 6 Q26 18 34 22" fill="#B0805A" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/><path d="M75 24 Q86 8 70 6 Q74 18 66 22" fill="#B0805A" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/>',
+  front:'<ellipse cx="50" cy="59" rx="6" ry="4" fill="none" stroke="#D8B23A" stroke-width="3"/>'},
+ {id:"tiger",name:"とら",bg:"#FF9B4D",panel:"#C1611C",
+  back:'<path d="M22 30 L14 10 L34 24 Z" fill="#FF9B4D" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/><path d="M78 30 L86 10 L66 24 Z" fill="#FF9B4D" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/>',
+  front:'<path d="M30 42 q6 4 2 10 M70 42 q-6 4 -2 10 M50 30 q4 4 0 8" stroke="#2b2b3a" stroke-width="2.5" fill="none" stroke-linecap="round"/>'},
+ {id:"rabbit",name:"うさぎ",bg:"#FFC9DE",panel:"#E38FB3",
+  back:'<ellipse cx="34" cy="10" rx="8" ry="20" fill="#FFC9DE" stroke="#2b2b3a" stroke-width="3" transform="rotate(-8 34 10)"/><ellipse cx="34" cy="10" rx="3.5" ry="14" fill="#FF9CC3" transform="rotate(-8 34 10)"/><ellipse cx="66" cy="10" rx="8" ry="20" fill="#FFC9DE" stroke="#2b2b3a" stroke-width="3" transform="rotate(8 66 10)"/><ellipse cx="66" cy="10" rx="3.5" ry="14" fill="#FF9CC3" transform="rotate(8 66 10)"/>'},
+ {id:"dragon",name:"たつ",bg:"#4FBF8B",panel:"#2E8A63",
+  back:'<path d="M30 22 Q24 4 38 8 Q34 16 40 22" fill="#4FBF8B" stroke="#2b2b3a" stroke-width="3"/><path d="M70 22 Q76 4 62 8 Q66 16 60 22" fill="#4FBF8B" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<path d="M30 58 q-10 4 -14 12 M70 58 q10 4 14 12" stroke="#2b2b3a" stroke-width="2.5" fill="none" stroke-linecap="round"/>'},
+ {id:"snake",name:"へび",bg:"#9B6FD1",panel:"#6A45A0",
+  back:'<path d="M20 46 Q50 20 80 46 Q68 34 50 34 Q32 34 20 46 Z" fill="#9B6FD1" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<path d="M50 68 L46 76 M50 68 L54 76" stroke="#e4483f" stroke-width="2.5" stroke-linecap="round"/>'},
+ {id:"horse",name:"うま",bg:"#D9A867",panel:"#A67A3E",
+  back:'<path d="M38 18 L34 4 L44 14 L42 2 L50 12 L52 2 L58 14 L64 4 L60 18 Z" fill="#D9A867" stroke="#2b2b3a" stroke-width="2.5" stroke-linejoin="round"/><path d="M26 30 L20 16 L34 26 Z" fill="#D9A867" stroke="#2b2b3a" stroke-width="2.5"/><path d="M74 30 L80 16 L66 26 Z" fill="#D9A867" stroke="#2b2b3a" stroke-width="2.5"/>'},
+ {id:"sheep",name:"ひつじ",bg:"#F5EDD8",panel:"#D8C79A",
+  back:'<path d="M24 34 q-12 -2 -10 -14 q10 -6 14 6 q4 -8 -4 -14" fill="none" stroke="#2b2b3a" stroke-width="3.5" stroke-linecap="round"/><path d="M76 34 q12 -2 10 -14 q-10 -6 -14 6 q-4 -8 4 -14" fill="none" stroke="#2b2b3a" stroke-width="3.5" stroke-linecap="round"/>'},
+ {id:"monkey",name:"さる",bg:"#C99A6B",panel:"#9C6E43",
+  back:'<circle cx="24" cy="46" r="10" fill="#C99A6B" stroke="#2b2b3a" stroke-width="3"/><circle cx="76" cy="46" r="10" fill="#C99A6B" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<ellipse cx="50" cy="66" rx="14" ry="7" fill="#FFE3C2"/>'},
+ {id:"rooster",name:"とり",bg:"#FFD24D",panel:"#E0A400",
+  back:'<path d="M38 20 Q40 4 46 18 Q50 2 54 18 Q60 4 62 20 Z" fill="#e4483f" stroke="#2b2b3a" stroke-width="2.5" stroke-linejoin="round"/>',
+  front:'<path d="M44 60 L56 60 L50 68 Z" fill="#f4b942" stroke="#2b2b3a" stroke-width="2" stroke-linejoin="round"/>'},
+ {id:"dog",name:"いぬ",bg:"#E3C9A0",panel:"#B99A68",
+  back:'<path d="M20 30 Q10 50 22 66 Q34 56 30 34 Z" fill="#E3C9A0" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/><path d="M80 30 Q90 50 78 66 Q66 56 70 34 Z" fill="#E3C9A0" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/>'},
+ {id:"boar",name:"いのしし",bg:"#C97C6D",panel:"#96493C",
+  back:'<circle cx="28" cy="30" r="9" fill="#C97C6D" stroke="#2b2b3a" stroke-width="3"/><circle cx="72" cy="30" r="9" fill="#C97C6D" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<ellipse cx="50" cy="62" rx="9" ry="6" fill="#F0A58C" stroke="#2b2b3a" stroke-width="2"/><circle cx="46" cy="62" r="1.6" fill="#2b2b3a"/><circle cx="54" cy="62" r="1.6" fill="#2b2b3a"/><path d="M40 66 L34 74 L40 72 Z" fill="#fff" stroke="#2b2b3a" stroke-width="1.5" stroke-linejoin="round"/><path d="M60 66 L66 74 L60 72 Z" fill="#fff" stroke="#2b2b3a" stroke-width="1.5" stroke-linejoin="round"/>'}
+];
+function mascotFace(hex){
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="54" r="38" fill="${hex}" stroke="#2b2b3a" stroke-width="3"/>
+    <circle cx="33" cy="42" r="8" fill="rgba(255,255,255,.4)"/>
+    <ellipse cx="34" cy="66" rx="8" ry="5" fill="rgba(255,255,255,.35)"/>
+    <ellipse cx="66" cy="66" rx="8" ry="5" fill="rgba(255,255,255,.35)"/>
+    <ellipse cx="38" cy="56" rx="6" ry="8" fill="#fff"/>
+    <ellipse cx="62" cy="56" rx="6" ry="8" fill="#fff"/>
+    <circle cx="39" cy="58" r="3" fill="#232333"/>
+    <circle cx="63" cy="58" r="3" fill="#232333"/>
+    <path d="M42 72 Q50 78 58 72" stroke="#2b2b3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+const INK_COLORS = [
+ {id:"pink",name:"いちごちゃん",hex:"#FF6FA0"},
+ {id:"orange",name:"みかんくん",hex:"#FF9B4D"},
+ {id:"yellow",name:"ひまわりさん",hex:"#FFD24D"},
+ {id:"green",name:"めろんくん",hex:"#4FBF8B"},
+ {id:"blue",name:"そらくん",hex:"#4DB6E8"},
+ {id:"purple",name:"ぶどうちゃん",hex:"#9B6FD1"}
+];
+const CHAR_ROSTER = [
+ ...ZODIAC.map(z=>({id:"zodiac_"+z.id, name:z.name, svg:()=>zodiacBot(z.bg,z.panel,z.back,z.front)})),
+ ...INK_COLORS.map(c=>({id:"mascot_"+c.id, name:c.name, svg:()=>mascotFace(c.hex)}))
+];
+function levelFor(xp){ if(xp>=15) return 3; if(xp>=5) return 2; return 1; }
+function levelBadge(lv){ return lv>=3?"👑":(lv>=2?"✨":""); }
+
 /* ====== 保存データ の よみこみ ====== */
 function loadJSON(key, fallback){
   try{
@@ -185,9 +316,98 @@ function loadJSON(key, fallback){
   }catch(e){}
   return fallback;
 }
+const COLLECTION_KEY = "hiragana_collection_v1";
+function loadCollection(){
+  const c = loadJSON(COLLECTION_KEY, {xp:0, gems:{}, equips:{pen:0,shield:0,charm:0}});
+  // 💎を むかしの 真偽値(もってる/もってない) から {total,count} に かるく いこう
+  const g = {};
+  for(const id in (c.gems||{})){
+    const v = c.gems[id];
+    g[id] = (v && typeof v==="object") ? {total:v.total||0, count:v.count||0} : {total:v?1:0, count:v?1:0};
+  }
+  c.gems = g;
+  if(!c.equips) c.equips = {pen:0, shield:0, charm:0};
+  return c;
+}
+function saveCollection(c){ try{ localStorage.setItem(COLLECTION_KEY, JSON.stringify(c)); }catch(e){} }
 const progress = loadJSON("hiragana_stage_progress_v1", {clearedCount:0});
-const collection = loadJSON("hiragana_collection_v1", {xp:0, gems:{}, equips:{pen:0,shield:0,charm:0}});
+let collection = loadCollection();
+// ⭐や💎を あつかう ちょくぜんに かならず よみなおす(古いあたいを つかわない ため)
+function refreshCollection(){ collection = loadCollection(); return collection; }
 const charStats = loadJSON("hiragana_char_stats_v1", {});
+const growth = loadJSON("hiragana_character_growth_v1", {});
+
+const FAV_KEY = "hiragana_favorites_v1";
+function loadFavorites(){ return loadJSON(FAV_KEY, []); }
+function saveFavorites(f){ try{ localStorage.setItem(FAV_KEY, JSON.stringify(f)); }catch(e){} }
+let favorites = loadFavorites();
+
+/* ====== キャラクター いくせい ====== */
+function xpProgress(xp, lv){
+  if(lv>=3) return 1;
+  const lo = lv===1?0:5, hi = lv===1?5:15;
+  return Math.min(1, Math.max(0, (xp-lo)/(hi-lo)));
+}
+let feedingGem = null; // {id, icon, name} えらんでいる💎(nullなら通常モード)
+function renderCharGrid(){
+  const box=$("charGrid"); box.innerHTML="";
+  box.parentElement.classList.toggle("feeding", !!feedingGem);
+  CHAR_ROSTER.forEach(c=>{
+    const xp=(growth[c.id]&&growth[c.id].xp)||0;
+    const lv=levelFor(xp);
+    const isFav=favorites.includes(c.id);
+    const d=document.createElement("div");
+    d.className="charCard lv"+lv+(isFav?" fav":"");
+    d.innerHTML=`<div class="iconWrap">${c.svg()}${lv>1?`<span class="lvBadge">${levelBadge(lv)}</span>`:""}</div>
+      <div class="cName">${c.name}</div><div class="cLv">Lv${lv}${lv>=3?" MAX":""}</div>
+      <div class="xpBar"><i style="width:${Math.round(xpProgress(xp,lv)*100)}%"></i></div>`;
+    d.onclick=()=>onCharCardClick(c.id);
+    box.appendChild(d);
+  });
+  renderFavStrip();
+}
+function onCharCardClick(id){
+  if(feedingGem){
+    useGemOnCharacter(feedingGem.id, id);
+    return;
+  }
+  toggleFavorite(id);
+}
+function useGemOnCharacter(gemId, charId){
+  refreshCollection();
+  const g = collection.gems[gemId];
+  if(!g || g.count<=0){ feedingGem=null; renderCharGrid(); renderGemGrid(); return; }
+  g.count--;
+  saveCollection(collection);
+  if(!growth[charId]) growth[charId]={xp:0};
+  growth[charId].xp += 5;
+  saveGrowth(growth);
+  const c = CHAR_ROSTER.find(r=>r.id===charId);
+  $("gachaResult").textContent = `💎を ${c?c.name:""}に あげた!⭐+5けいけんち`;
+  feedingGem = null;
+  renderCharGrid();
+  renderGemGrid();
+}
+function saveGrowth(g){ try{ localStorage.setItem("hiragana_character_growth_v1", JSON.stringify(g)); }catch(e){} }
+function toggleFavorite(id){
+  if(favorites.includes(id)){
+    favorites=favorites.filter(x=>x!==id);
+  }else{
+    if(favorites.length>=3) favorites.shift();
+    favorites.push(id);
+  }
+  saveFavorites(favorites);
+  renderCharGrid();
+}
+function renderFavStrip(){
+  const box=$("favStrip");
+  if(!favorites.length){ box.innerHTML='<div class="favEmpty">キャラを タップすると 3体まで「おきにいり」に できるよ</div>'; return; }
+  box.innerHTML=favorites.map(id=>{
+    const c=CHAR_ROSTER.find(r=>r.id===id);
+    return c ? c.svg() : "";
+  }).join("");
+}
+renderCharGrid();
 
 /* ====== サマリー ====== */
 $("sumXp").textContent = collection.xp;
@@ -222,22 +442,77 @@ dexBox.innerHTML = renderGojuonTable(GOJUON_ROWS)
   + renderGojuonTable(DAKUON_ROWS);
 
 /* ====== ガチャ コレクション ====== */
-const gemBox = $("gemGrid");
-GEMS.forEach(g=>{
-  const got = !!collection.gems[g.id];
-  const d = document.createElement("div");
-  d.className = "collItem"+(got?"":" locked");
-  d.innerHTML = `<b>${got?g.icon:"❔"}</b>${g.name}`;
-  gemBox.appendChild(d);
-});
-const equipBox = $("equipGrid");
-EQUIPS.forEach(eq=>{
-  const count = collection.equips[eq.id]||0;
-  const d = document.createElement("div");
-  d.className = "collItem"+(count?"":" locked");
-  d.innerHTML = `<b>${eq.icon}</b>${eq.name}${count?" ×"+count:""}`;
-  equipBox.appendChild(d);
-});
+function renderGemGrid(){
+  const gemBox = $("gemGrid"); gemBox.innerHTML="";
+  GEMS.forEach(g=>{
+    const info = collection.gems[g.id] || {total:0,count:0};
+    const got = info.total>0;
+    const d = document.createElement("div");
+    d.className = "collItem"+(got?"":" locked")+(feedingGem&&feedingGem.id===g.id?" selected":"");
+    d.innerHTML = `<b>${got?g.icon:"❔"}</b>${g.name}${info.count>0?" ×"+info.count:""}`;
+    if(info.count>0){
+      d.onclick = ()=>{
+        feedingGem = (feedingGem&&feedingGem.id===g.id) ? null : {id:g.id, icon:g.icon, name:g.name};
+        $("gachaResult").textContent = feedingGem ? `${feedingGem.icon} どのキャラに あげる? キャラを タップしてね` : "";
+        renderGemGrid(); renderCharGrid();
+      };
+    }
+    gemBox.appendChild(d);
+  });
+}
+function renderEquipGrid(){
+  const equipBox = $("equipGrid"); equipBox.innerHTML="";
+  EQUIPS.forEach(eq=>{
+    const count = collection.equips[eq.id]||0;
+    const d = document.createElement("div");
+    d.className = "collItem"+(count?"":" locked");
+    d.innerHTML = `<b>${eq.icon}</b>${eq.name}${count?" ×"+count:""}`;
+    equipBox.appendChild(d);
+  });
+}
+renderGemGrid();
+renderEquipGrid();
+
+/* ====== ガチャを ひく(⭐は 全ゲーム共通) ====== */
+const GACHA_COST = 30;
+$("gachaCostLbl").textContent = GACHA_COST;
+function updateGachaBalance(){ refreshCollection(); $("gachaXpLive").textContent = collection.xp; }
+updateGachaBalance();
+function pullGacha(){
+  refreshCollection();
+  if(collection.xp < GACHA_COST){
+    $("gachaResult").textContent = `⭐が たりないよ(あと ${GACHA_COST-collection.xp})`;
+    updateGachaBalance();
+    return;
+  }
+  $("gachaResult").textContent = "";
+  collection.xp -= GACHA_COST;
+  const r = Math.random();
+  let icon,title,desc;
+  if(r<.55){
+    const gem = rand(GEMS);
+    if(!collection.gems[gem.id]) collection.gems[gem.id] = {total:0,count:0};
+    collection.gems[gem.id].total++; collection.gems[gem.id].count++;
+    icon=gem.icon; title=gem.name+" ゲット!"; desc="キャラを タップして あげられるよ";
+  }else if(r<.8){
+    const eq = rand(EQUIPS);
+    collection.equips[eq.id] = (collection.equips[eq.id]||0)+1;
+    icon=eq.icon; title=eq.name+" ゲット!"; desc="シューターで つかえるよ";
+  }else{
+    collection.xp += 15;
+    icon="⭐"; title="⭐ボーナス!"; desc="⭐が 15 ふえたよ!";
+  }
+  saveCollection(collection);
+  $("sumXp").textContent = collection.xp;
+  updateGachaBalance();
+  renderGemGrid(); renderEquipGrid();
+  $("capsule").textContent = icon;
+  $("gachaTitle").textContent = title;
+  $("gachaDesc").textContent = desc;
+  $("gachaOv").classList.remove("show"); void $("gachaOv").offsetWidth; $("gachaOv").classList.add("show");
+}
+$("gachaCloseBtn").onclick = ()=>{ $("gachaOv").classList.remove("show"); };
+$("gachaPullBtn").onclick = pullGacha;
 
 /* ====== ステージ しんちょく ====== */
 const stageBox = $("stageList");

@@ -293,6 +293,25 @@ function addXp(amount){
   return c.xp;
 }
 
+/* ====== キャラクター いくせい(十二支ロボ+ぬりぬりマスコット、軽量版レベルアップ)
+   既存の保存キーには一切さわらず、新しいキーにだけ追加していく(過去のセーブを壊さない) ====== */
+const GROWTH_KEY = "hiragana_character_growth_v1";
+function loadGrowth(){
+  try{
+    const raw = localStorage.getItem(GROWTH_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {};
+}
+function saveGrowth(g){ try{ localStorage.setItem(GROWTH_KEY, JSON.stringify(g)); }catch(e){} }
+function addCharXp(id, amount){
+  const g = loadGrowth();
+  if(!g[id]) g[id] = {xp:0};
+  g[id].xp += amount;
+  saveGrowth(g);
+}
+function levelFor(xp){ if(xp>=15) return 3; if(xp>=5) return 2; return 1; }
+
 /* ====== もじ べつ せいせき(全ゲーム共通・永続。マイプロフィールの ずかんに つかう) ====== */
 const CHAR_STATS_KEY = "hiragana_char_stats_v1";
 function loadCharStats(){
@@ -665,6 +684,7 @@ function endBattle(){
   const result = G.painted>G.enemyPainted ? "win" : (G.painted<G.enemyPainted ? "lose" : "draw");
   const xpGain = G.painted*2 + (result==="win"?10:0);
   addXp(xpGain);
+  addCharXp("mascot_"+G.ink.id, 1);
   const cfg = {
     win:{emoji:"🏆", title:"かち!", say:"かち!おめでとう!",
       desc:`きみが ${G.painted}マス、あいてが ${G.enemyPainted}マス!すごい! ⭐+${xpGain}`},
@@ -748,6 +768,7 @@ function onClear(){
   const newRecordStr = rank===0 ? "🎉 じこベスト こうしん!" : (rank>=0 ? "🎉 じぶん きろく トップ3 いり!" : "");
   const xpGain = stars*10;
   addXp(xpGain);
+  addCharXp("mascot_"+G.ink.id, 1);
   $("nextStageBtn").style.display = isLast ? "none" : "";
   $("clearTitle").textContent = isLast ? "ぜんぶ クリア!" : "ぬりえ かんせい!";
   let summary = `${starStr}<br>タイム ${timeStr}・ミス ${G.mistakes}かい・⭐+${xpGain}`;
