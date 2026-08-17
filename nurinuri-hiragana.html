@@ -229,6 +229,24 @@ function markCleared(idx){
   if(idx+1 > p.clearedCount){ p.clearedCount = idx+1; saveProgress(p); }
 }
 
+/* ====== ⭐・コレクション(全ゲーム共通・永続。ガチャは「ひらがな シューター」側) ====== */
+const COLLECTION_KEY = "hiragana_collection_v1";
+function loadCollection(){
+  try{
+    const raw = localStorage.getItem(COLLECTION_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { xp:0, gems:{}, equips:{pen:0, shield:0, charm:0} };
+}
+function saveCollection(c){ try{ localStorage.setItem(COLLECTION_KEY, JSON.stringify(c)); }catch(e){} }
+function addXp(amount){
+  const c=loadCollection();
+  c.xp += amount;
+  saveCollection(c);
+  G.xp = c.xp;
+  return c.xp;
+}
+
 /* ====== タイムアタック(のんびりモードの じこ きろく) ====== */
 const RECORDS_KEY = "hiragana_nurinuri_records_v1";
 function loadRecords(){
@@ -347,7 +365,7 @@ const BOARD_SIZE = 16;
 const G = {
   ink:INK_COLORS[0], stageIdx:0, stageDef:null, mode:"calm", painted:0, tiles:[], current:null,
   enemyPainted:0, rival:null, battleRunning:false, battleTimeLeft:60, enemyTimer:null, battleTimer:null,
-  mistakes:0, stageStartTime:0
+  mistakes:0, stageStartTime:0, xp:loadCollection().xp
 };
 
 /* ====== こうかおん ====== */
@@ -557,13 +575,15 @@ function endBattle(){
   stopBattleTimers();
   markCleared(G.stageIdx);
   const result = G.painted>G.enemyPainted ? "win" : (G.painted<G.enemyPainted ? "lose" : "draw");
+  const xpGain = G.painted*2 + (result==="win"?10:0);
+  addXp(xpGain);
   const cfg = {
     win:{emoji:"🏆", title:"かち!", say:"かち!おめでとう!",
-      desc:`きみが ${G.painted}マス、あいてが ${G.enemyPainted}マス!すごい!`},
+      desc:`きみが ${G.painted}マス、あいてが ${G.enemyPainted}マス!すごい! ⭐+${xpGain}`},
     draw:{emoji:"🤝", title:"ひきわけ!", say:"ひきわけ!ナイスしょうぶ!",
-      desc:`どちらも ${G.painted}マス!ナイスしょうぶ!`},
+      desc:`どちらも ${G.painted}マス!ナイスしょうぶ! ⭐+${xpGain}`},
     lose:{emoji:"💪", title:"つぎは まけないぞ!", say:"つぎは がんばろう!",
-      desc:`あいてが ${G.enemyPainted}マス、きみが ${G.painted}マス。もういちど ちょうせんしよう!`}
+      desc:`あいてが ${G.enemyPainted}マス、きみが ${G.painted}マス。もういちど ちょうせんしよう! ⭐+${xpGain}`}
   }[result];
   $("battleEmoji").textContent=cfg.emoji;
   $("battleTitle").textContent=cfg.title;
@@ -641,9 +661,11 @@ function onClear(){
   const timeStr = m+":"+String(s).padStart(2,"0");
   const starStr = "⭐".repeat(stars)+"☆".repeat(3-stars);
   const newRecordStr = rank===0 ? "🎉 じこベスト こうしん!" : (rank>=0 ? "🎉 じぶん きろく トップ3 いり!" : "");
+  const xpGain = stars*10;
+  addXp(xpGain);
   $("nextStageBtn").style.display = isLast ? "none" : "";
   $("clearTitle").textContent = isLast ? "ぜんぶ クリア!" : "ぬりえ かんせい!";
-  let summary = `${starStr}<br>タイム ${timeStr}・ミス ${G.mistakes}かい`;
+  let summary = `${starStr}<br>タイム ${timeStr}・ミス ${G.mistakes}かい・⭐+${xpGain}`;
   if(newRecordStr) summary += "<br>"+newRecordStr;
   if(isLast) summary = "ぜんぶの ステージを クリアしたよ!すごい!<br>"+summary;
   $("clearSummary").innerHTML = summary;

@@ -39,11 +39,11 @@
   #baseline{position:absolute; left:0; right:0; bottom:6px; border-top:3px dashed rgba(255,255,255,.4);
     text-align:center; font-size:11px; color:rgba(255,255,255,.6); padding-top:2px;}
   .enemy{position:absolute; left:50%; transform:translateX(-50%); text-align:center; transition:top .3s linear;}
-  .enemy .body{width:64px; height:64px; filter:drop-shadow(0 4px 6px rgba(0,0,0,.4));}
+  .enemy .body{width:64px; height:64px; margin:0 auto; filter:drop-shadow(0 4px 6px rgba(0,0,0,.4));}
   .enemy .body svg{width:100%; height:100%; display:block;}
   .enemy.hitAnim .body{animation:hitShake .35s;}
   @keyframes hitShake{0%,100%{transform:scale(1);}30%{transform:scale(1.25) rotate(-8deg);}60%{transform:scale(.9) rotate(6deg);}}
-  .enemy .hp{display:flex; gap:3px; justify-content:center; margin-top:2px;}
+  .enemy .hp{display:flex; gap:3px; justify-content:center; margin:2px auto 0; width:fit-content;}
   .enemy .hp i{width:14px; height:6px; border-radius:3px; background:#E4483F;}
   .enemy .hp i.off{background:rgba(255,255,255,.25);}
   .wordRow{display:flex; gap:5px; justify-content:center; margin-bottom:4px; align-items:center;}
@@ -332,6 +332,22 @@ function markCleared(idx){
   if(idx+1 > p.clearedCount){ p.clearedCount = idx+1; saveProgress(p); }
 }
 
+/* ====== ⭐・コレクション(全ゲーム共通・永続) ====== */
+const COLLECTION_KEY = "hiragana_collection_v1";
+function loadCollection(){
+  try{
+    const raw = localStorage.getItem(COLLECTION_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { xp:0, gems:{}, equips:{pen:0, shield:0, charm:0} };
+}
+function saveCollection(c){ try{ localStorage.setItem(COLLECTION_KEY, JSON.stringify(c)); }catch(e){} }
+function persistCollection(){
+  const c=loadCollection();
+  c.xp=G.xp; c.gems=G.gems; c.equips=G.equips;
+  saveCollection(c);
+}
+
 /* ====== てき(十二支モブロボット, スーパーデフォルメ・オリジナルデザイン) ====== */
 function zodiacBot(bg,panel,back,front){
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -400,9 +416,10 @@ const EQUIPS = [
 const GACHA_COST = 30;
 
 /* ====== ゲーム状態 ====== */
+const SAVED = loadCollection();
 const G = {
-  running:false, stageIdx:0, stageDef:null, defeats:0, hearts:3, xp:0,
-  gems:{}, equips:{pen:0, shield:0, charm:0}, shieldsLeft:0,
+  running:false, stageIdx:0, stageDef:null, defeats:0, hearts:3, xp:SAVED.xp,
+  gems:SAVED.gems, equips:SAVED.equips, shieldsLeft:SAVED.equips.shield||0,
   enemy:null, // {el, y, word, blankIdx, hp, maxHp, emoji, filled}
   chosen:null, padState:"idle", // idle | tracing | ready
   strokeIdx:0, guidePts:[], matched:0, drawing:false, userPts:[],
@@ -570,6 +587,7 @@ function updateHud(){
     hud.appendChild(s);
   });
   $("gachaBtn").disabled = G.xp < GACHA_COST;
+  persistCollection();
 }
 function updateTimerDisplay(){
   const sec = Math.max(0, Math.ceil(G.timeLeft/1000));
