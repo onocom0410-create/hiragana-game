@@ -10,8 +10,9 @@
     --ink:#33334D; --accent:#FF7B54; --ok:#5FAE7C; --gold:#FFC24B;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
-  html,body{margin:0; height:100%;}
+  html,body{margin:0; height:100%; overflow:hidden;}
   body{
+    position:fixed; inset:0; width:100%;
     font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
     background:linear-gradient(135deg,#FFF6E0,#E9FFEA 60%,#E0F4FF);
     color:var(--ink); display:flex; justify-content:center;
@@ -100,6 +101,11 @@
 </style>
 </head>
 <body>
+<div id="lineBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#06C755;color:#fff;font-size:12px;font-weight:700;padding:8px 34px 8px 12px;text-align:center;line-height:1.5;box-sizing:border-box;">
+  📱 LINEの中で ひらいています。右上「⋮」から「他のアプリで開く」を選ぶと、もっと快適に あそべます!
+  <button onclick="document.getElementById('lineBanner').remove()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:2px 8px;font-weight:900;cursor:pointer;">✕</button>
+</div>
+<script>if(/Line\//i.test(navigator.userAgent))document.getElementById('lineBanner').style.display='block';</script>
 <div id="app">
 
   <div class="hud">
