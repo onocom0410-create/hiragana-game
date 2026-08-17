@@ -149,6 +149,23 @@
   <button onclick="document.getElementById('lineBanner').remove()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:2px 8px;font-weight:900;cursor:pointer;">✕</button>
 </div>
 <script>if(/Line\//i.test(navigator.userAgent))document.getElementById('lineBanner').style.display='block';</script>
+<div id="rotateOv" style="display:none;position:fixed;inset:0;z-index:999999;background:#1B2A4A;color:#fff;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif;">
+  <div style="font-size:56px;">📱↻</div>
+  <p style="font-size:16px;font-weight:900;margin-top:10px;line-height:1.7;">たてに してね!<br>スマホを たてむきに もどしてね</p>
+</div>
+<style>@media (orientation:landscape) and (max-width:900px){ #rotateOv{display:flex !important;} }</style>
+<script>
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+document.addEventListener('gestureend', function(e){ e.preventDefault(); });
+document.addEventListener('touchmove', function(e){ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
+let __lastTouchEnd = 0;
+document.addEventListener('touchend', function(e){
+  const now = Date.now();
+  if(now - __lastTouchEnd <= 300) e.preventDefault();
+  __lastTouchEnd = now;
+}, false);
+</script>
 
 <!-- 単語セット(おうちのひと) -->
 <section id="setup" class="screen active">
