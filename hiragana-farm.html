@@ -36,6 +36,11 @@
   .player{position:absolute; width:46px; height:46px; transform:translate(-50%,-50%); z-index:6; pointer-events:none;}
   .player svg{width:100%; height:100%; display:block;}
 
+  .rival{position:absolute; width:44px; height:44px; transform:translate(-50%,-50%); z-index:5; pointer-events:none;}
+  .rival svg{width:100%; height:100%; display:block;}
+  .telegraph{position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:20px; animation:telegraphPulse .5s infinite alternate; pointer-events:none;}
+  @keyframes telegraphPulse{from{transform:translateX(-50%) scale(1);}to{transform:translateX(-50%) scale(1.3);}}
+
   .spawnItem{position:absolute; pointer-events:none; transform:translate(-50%,-50%); animation:itemBob 1.6s ease-in-out infinite; z-index:3;}
   .spawnItem.rare{animation:itemBobRare 1.2s ease-in-out infinite;}
   @keyframes itemBob{0%,100%{transform:translate(-50%,-50%) translateY(0);}50%{transform:translate(-50%,-50%) translateY(-6px);}}
@@ -61,6 +66,7 @@
   #bottom{background:rgba(255,255,255,.95); border-radius:22px 22px 0 0; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); text-align:center;}
   .padMsg{font-size:13px; font-weight:900; min-height:18px;}
   .padMsg.good{color:var(--ok);}
+  .padMsg.retry{color:#FF7B54;}
 
   .overlay{
     position:absolute; inset:0; background:rgba(255,255,255,.96); z-index:20;
@@ -221,6 +227,8 @@ function sfxFanfare(){
   beep(523.25,.14,"square",.25,0); beep(659.25,.14,"square",.25,.13);
   beep(784,.14,"square",.25,.26); beep(1046.5,.32,"square",.27,.39);
 }
+function sfxSteal(){ beep(392,.1,"triangle",.2); beep(311.1,.14,"triangle",.18,.08); }
+function sfxBeatRival(){ beep(880,.1,"sine",.25); beep(1318.5,.16,"sine",.24,.09); }
 
 const BGM_BPM = 150;
 const STEP_SEC = 60/BGM_BPM/4;
@@ -346,6 +354,61 @@ function mascotFace(hex){
     <path d="M42 72 Q50 78 58 72" stroke="#2b2b3a" stroke-width="3" fill="none" stroke-linecap="round"/>
   </svg>`;
 }
+
+/* ====== ライバル(十二支モブロボット。「ひらがな シューター」「ぬりぬり ひらがな」と同じデザイン) ====== */
+function zodiacBot(bg,panel,back,front){
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    ${back||""}
+    <ellipse cx="50" cy="90" rx="20" ry="5" fill="rgba(0,0,0,.25)"/>
+    <rect x="30" y="78" width="10" height="14" rx="4" fill="#3a3a4a"/>
+    <rect x="60" y="78" width="10" height="14" rx="4" fill="#3a3a4a"/>
+    <circle cx="50" cy="52" r="32" fill="${bg}" stroke="#2b2b3a" stroke-width="3"/>
+    <circle cx="38" cy="38" r="7" fill="rgba(255,255,255,.35)"/>
+    <rect x="38" y="62" width="24" height="14" rx="6" fill="${panel}" stroke="#2b2b3a" stroke-width="2"/>
+    <circle cx="50" cy="69" r="3" fill="#fff2b0"/>
+    <ellipse cx="40" cy="50" rx="7" ry="9" fill="#fff"/>
+    <ellipse cx="60" cy="50" rx="7" ry="9" fill="#fff"/>
+    <circle cx="41" cy="52" r="3.4" fill="#232333"/>
+    <circle cx="61" cy="52" r="3.4" fill="#232333"/>
+    <circle cx="50" cy="16" r="4" fill="#e4483f"/>
+    <rect x="48.5" y="18" width="3" height="10" fill="#8a8a9a"/>
+    ${front||""}
+  </svg>`;
+}
+const ZODIAC = [
+ {id:"rat",name:"ねずみ",bg:"#8891A6",panel:"#545C72",
+  back:'<circle cx="27" cy="26" r="11" fill="#8891A6" stroke="#2b2b3a" stroke-width="3"/><circle cx="27" cy="26" r="5" fill="#FFD9E6"/><circle cx="73" cy="26" r="11" fill="#8891A6" stroke="#2b2b3a" stroke-width="3"/><circle cx="73" cy="26" r="5" fill="#FFD9E6"/>',
+  front:'<path d="M80 78 q14 -4 10 -18" stroke="#8891A6" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M30 56 L14 52 M30 60 L14 62 M70 56 L86 52 M70 60 L86 62" stroke="#2b2b3a" stroke-width="2" stroke-linecap="round"/>'},
+ {id:"ox",name:"うし",bg:"#B0805A",panel:"#7A5636",
+  back:'<path d="M25 24 Q14 8 30 6 Q26 18 34 22" fill="#B0805A" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/><path d="M75 24 Q86 8 70 6 Q74 18 66 22" fill="#B0805A" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/>',
+  front:'<ellipse cx="50" cy="59" rx="6" ry="4" fill="none" stroke="#D8B23A" stroke-width="3"/>'},
+ {id:"tiger",name:"とら",bg:"#FF9B4D",panel:"#C1611C",
+  back:'<path d="M22 30 L14 10 L34 24 Z" fill="#FF9B4D" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/><path d="M78 30 L86 10 L66 24 Z" fill="#FF9B4D" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/>',
+  front:'<path d="M30 42 q6 4 2 10 M70 42 q-6 4 -2 10 M50 30 q4 4 0 8" stroke="#2b2b3a" stroke-width="2.5" fill="none" stroke-linecap="round"/>'},
+ {id:"rabbit",name:"うさぎ",bg:"#FFC9DE",panel:"#E38FB3",
+  back:'<ellipse cx="34" cy="10" rx="8" ry="20" fill="#FFC9DE" stroke="#2b2b3a" stroke-width="3" transform="rotate(-8 34 10)"/><ellipse cx="34" cy="10" rx="3.5" ry="14" fill="#FF9CC3" transform="rotate(-8 34 10)"/><ellipse cx="66" cy="10" rx="8" ry="20" fill="#FFC9DE" stroke="#2b2b3a" stroke-width="3" transform="rotate(8 66 10)"/><ellipse cx="66" cy="10" rx="3.5" ry="14" fill="#FF9CC3" transform="rotate(8 66 10)"/>'},
+ {id:"dragon",name:"たつ",bg:"#4FBF8B",panel:"#2E8A63",
+  back:'<path d="M30 22 Q24 4 38 8 Q34 16 40 22" fill="#4FBF8B" stroke="#2b2b3a" stroke-width="3"/><path d="M70 22 Q76 4 62 8 Q66 16 60 22" fill="#4FBF8B" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<path d="M30 58 q-10 4 -14 12 M70 58 q10 4 14 12" stroke="#2b2b3a" stroke-width="2.5" fill="none" stroke-linecap="round"/>'},
+ {id:"snake",name:"へび",bg:"#9B6FD1",panel:"#6A45A0",
+  back:'<path d="M20 46 Q50 20 80 46 Q68 34 50 34 Q32 34 20 46 Z" fill="#9B6FD1" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<path d="M50 68 L46 76 M50 68 L54 76" stroke="#e4483f" stroke-width="2.5" stroke-linecap="round"/>'},
+ {id:"horse",name:"うま",bg:"#D9A867",panel:"#A67A3E",
+  back:'<path d="M38 18 L34 4 L44 14 L42 2 L50 12 L52 2 L58 14 L64 4 L60 18 Z" fill="#D9A867" stroke="#2b2b3a" stroke-width="2.5" stroke-linejoin="round"/><path d="M26 30 L20 16 L34 26 Z" fill="#D9A867" stroke="#2b2b3a" stroke-width="2.5"/><path d="M74 30 L80 16 L66 26 Z" fill="#D9A867" stroke="#2b2b3a" stroke-width="2.5"/>'},
+ {id:"sheep",name:"ひつじ",bg:"#F5EDD8",panel:"#D8C79A",
+  back:'<path d="M24 34 q-12 -2 -10 -14 q10 -6 14 6 q4 -8 -4 -14" fill="none" stroke="#2b2b3a" stroke-width="3.5" stroke-linecap="round"/><path d="M76 34 q12 -2 10 -14 q-10 -6 -14 6 q-4 -8 4 -14" fill="none" stroke="#2b2b3a" stroke-width="3.5" stroke-linecap="round"/>'},
+ {id:"monkey",name:"さる",bg:"#C99A6B",panel:"#9C6E43",
+  back:'<circle cx="24" cy="46" r="10" fill="#C99A6B" stroke="#2b2b3a" stroke-width="3"/><circle cx="76" cy="46" r="10" fill="#C99A6B" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<ellipse cx="50" cy="66" rx="14" ry="7" fill="#FFE3C2"/>'},
+ {id:"rooster",name:"とり",bg:"#FFD24D",panel:"#E0A400",
+  back:'<path d="M38 20 Q40 4 46 18 Q50 2 54 18 Q60 4 62 20 Z" fill="#e4483f" stroke="#2b2b3a" stroke-width="2.5" stroke-linejoin="round"/>',
+  front:'<path d="M44 60 L56 60 L50 68 Z" fill="#f4b942" stroke="#2b2b3a" stroke-width="2" stroke-linejoin="round"/>'},
+ {id:"dog",name:"いぬ",bg:"#E3C9A0",panel:"#B99A68",
+  back:'<path d="M20 30 Q10 50 22 66 Q34 56 30 34 Z" fill="#E3C9A0" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/><path d="M80 30 Q90 50 78 66 Q66 56 70 34 Z" fill="#E3C9A0" stroke="#2b2b3a" stroke-width="3" stroke-linejoin="round"/>'},
+ {id:"boar",name:"いのしし",bg:"#C97C6D",panel:"#96493C",
+  back:'<circle cx="28" cy="30" r="9" fill="#C97C6D" stroke="#2b2b3a" stroke-width="3"/><circle cx="72" cy="30" r="9" fill="#C97C6D" stroke="#2b2b3a" stroke-width="3"/>',
+  front:'<ellipse cx="50" cy="62" rx="9" ry="6" fill="#F0A58C" stroke="#2b2b3a" stroke-width="2"/><circle cx="46" cy="62" r="1.6" fill="#2b2b3a"/><circle cx="54" cy="62" r="1.6" fill="#2b2b3a"/><path d="M40 66 L34 74 L40 72 Z" fill="#fff" stroke="#2b2b3a" stroke-width="1.5" stroke-linejoin="round"/><path d="M60 66 L66 74 L60 72 Z" fill="#fff" stroke="#2b2b3a" stroke-width="1.5" stroke-linejoin="round"/>'}
+];
 
 /* ====== ⭐・コレクション(全ゲーム共通・永続) ====== */
 const COLLECTION_KEY = "hiragana_collection_v1";
@@ -482,6 +545,8 @@ const SPAWN_POINTS_DEF = [
  {x:.5,y:.82}
 ];
 const SPEED = 150; // px/秒
+const RIVAL_SPEED = 100; // px/秒(プレイヤーより ゆっくり=がんばれば かてる)
+const RIVAL_TELEGRAPH_MS = 900;
 const PICKUP_RADIUS = 30;
 const PAD = 24;
 const QUESTS_PER_STAGE = 3;
@@ -494,7 +559,7 @@ const TUTORIAL_TEXT = [
  "『たこ』を タップして かんせいさせよう!"
 ];
 
-const G = { gameActive:false, playerX:0, playerY:0, spawnPoints:[] };
+const G = { gameActive:false, playerX:0, playerY:0, spawnPoints:[], rival:null };
 
 function setToast(t,cls){ const m=$("toast"); m.textContent=t; m.className="padMsg "+(cls||""); }
 
@@ -575,15 +640,25 @@ setInterval(tickSpawns, 1000);
 
 function collectItem(sp){
   const item = sp.item;
+  const beatRival = !!(G.rival && G.rival.targetSp===sp && G.rival.phase!=="idle");
   if(sp.el) sp.el.remove();
   sp.item=null; sp.el=null;
   sp.nextSpawnAt = Date.now() + 6000 + Math.random()*5000;
+  if(beatRival){ G.rival.targetSp=null; G.rival.phase="idle"; }
   const inv = loadInventory();
   inv[item.char] = (inv[item.char]||0)+1;
   saveInventory(inv);
-  sfxPickup(item.rare);
-  speak("「" + item.char + "」だね!");
-  setToast(`「${item.char}」を ひろった!`, "good");
+  if(beatRival){
+    sfxBeatRival();
+    addXp(1);
+    updateStarLabel();
+    speak("「" + item.char + "」だね!ライバルより はやかったよ!");
+    setToast(`「${item.char}」を ライバルより さきに ひろった! ⭐+1`, "good");
+  }else{
+    sfxPickup(item.rare);
+    speak("「" + item.char + "」だね!");
+    setToast(`「${item.char}」を ひろった!`, "good");
+  }
   const prog = loadProgress();
   if(!prog.tutorialDone){
     if(item.char==="た" && prog.tutorialStep===1){
@@ -604,7 +679,84 @@ setInterval(()=>{
     const ix = r.left+r.width/2, iy = r.top+r.height/2;
     if(Math.hypot(px-ix, py-iy) < PICKUP_RADIUS) collectItem(sp);
   });
+  if(G.rival && G.rival.phase==="moving"){
+    if(!G.rival.targetSp || !G.rival.targetSp.item){
+      // プレイヤーに 先を こされた(もう そのマスに タイルが ない)
+      G.rival.phase="idle"; G.rival.targetSp=null;
+    }else{
+      const rr = G.rival.el.getBoundingClientRect();
+      const rx = rr.left+rr.width/2, ry = rr.top+rr.height/2;
+      const tr = G.rival.targetSp.el.getBoundingClientRect();
+      const tx = tr.left+tr.width/2, ty = tr.top+tr.height/2;
+      if(Math.hypot(rx-tx, ry-ty) < PICKUP_RADIUS) rivalSteal(G.rival, G.rival.targetSp);
+    }
+  }
 }, 150);
+
+/* ====== ライバル(十二支ロボが せんこうして もじタイルを ねらう) ====== */
+function clearRival(){
+  if(G.rival && G.rival.el) G.rival.el.remove();
+  G.rival = null;
+}
+function spawnRival(prog){
+  const zodiac = ZODIAC[(prog.stageIdx-1) % ZODIAC.length];
+  const el = document.createElement("div");
+  el.className = "rival";
+  el.innerHTML = zodiacBot(zodiac.bg, zodiac.panel, zodiac.back, zodiac.front);
+  $("field").appendChild(el);
+  G.rival = {zodiac, el, x:0, y:0, targetSp:null, phase:"idle"};
+  requestAnimationFrame(()=>{
+    const rect = $("field").getBoundingClientRect();
+    const x = rect.width*.5, y = rect.height*.15;
+    el.style.transition="none";
+    el.style.left=x+"px"; el.style.top=y+"px";
+    if(G.rival){ G.rival.x=x; G.rival.y=y; }
+  });
+}
+function moveRivalTo(r, sp){
+  const rect = $("field").getBoundingClientRect();
+  const x = rect.width*sp.defX, y = rect.height*sp.defY;
+  const dx=x-r.x, dy=y-r.y;
+  const dist=Math.hypot(dx,dy);
+  const dur=Math.max(.12, dist/RIVAL_SPEED);
+  r.el.style.transition = `left ${dur}s linear, top ${dur}s linear`;
+  if(dx < -2) r.el.style.transform = "translate(-50%,-50%) scaleX(-1)";
+  else if(dx > 2) r.el.style.transform = "translate(-50%,-50%) scaleX(1)";
+  r.el.style.left = x+"px"; r.el.style.top = y+"px";
+  r.x=x; r.y=y;
+}
+function rivalSteal(r, sp){
+  const ch = sp.item.char;
+  if(sp.el) sp.el.remove();
+  sp.item=null; sp.el=null;
+  sp.nextSpawnAt = Date.now() + 6000 + Math.random()*5000;
+  sfxSteal();
+  setToast(`「${ch}」を ${r.zodiac.name}に とられちゃった!`, "retry");
+  r.targetSp = null;
+  r.phase = "idle";
+}
+function tickRival(){
+  if(!G.gameActive || !G.rival) return;
+  const r = G.rival;
+  if(r.phase !== "idle") return;
+  const candidates = G.spawnPoints.filter(sp=>sp.item);
+  if(!candidates.length) return;
+  const target = rand(candidates);
+  r.targetSp = target;
+  r.phase = "telegraph";
+  const oldTg = r.el.querySelector(".telegraph"); if(oldTg) oldTg.remove();
+  const tg = document.createElement("span");
+  tg.className = "telegraph"; tg.textContent = "❗";
+  r.el.appendChild(tg);
+  setTimeout(()=>{
+    if(G.rival !== r) return; // すでに ステージが かわっている
+    const tgEl = r.el.querySelector(".telegraph"); if(tgEl) tgEl.remove();
+    if(!r.targetSp || !r.targetSp.item){ r.phase="idle"; r.targetSp=null; return; }
+    r.phase = "moving";
+    moveRivalTo(r, r.targetSp);
+  }, RIVAL_TELEGRAPH_MS);
+}
+setInterval(tickRival, 1500);
 
 /* ====== クエスト(ことば かんせい) ====== */
 function renderQuestPanel(){
@@ -679,8 +831,12 @@ $("menuBtn").onclick=()=>{
   }
   renderQuestPanel();
   $("craftOv").classList.add("show");
+  G.gameActive = false; // メニューをひらいている間は フィールドを とめる(ライバルにも 見えない場所で 出しぬかれないように)
 };
-$("craftCloseBtn").onclick=()=>{ $("craftOv").classList.remove("show"); };
+$("craftCloseBtn").onclick=()=>{
+  $("craftOv").classList.remove("show");
+  G.gameActive = true;
+};
 
 /* ====== ステージクリア ====== */
 function finishStage(prog, lastQuest){
@@ -749,10 +905,12 @@ function setupRealStage(prog){
 }
 function runStage(prog){
   clearSpawns();
+  clearRival();
   if(!prog.tutorialDone){
     setupTutorialStage(prog);
   }else{
     setupRealStage(prog);
+    if(prog.stageIdx >= 1) spawnRival(prog);
   }
   updateMenuBtnState(prog);
   renderQuestBar(prog);
