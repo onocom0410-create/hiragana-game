@@ -99,6 +99,22 @@
   .questNeed .lack{color:#D9534F;}
   .questBtn{border:none; border-radius:10px; background:var(--accent); color:#fff; font-family:inherit; font-weight:900; font-size:12px; padding:8px 10px; cursor:pointer; white-space:nowrap;}
   .questBtn:disabled{background:rgba(0,0,0,.15); color:rgba(0,0,0,.35); cursor:default;}
+
+  #mapLap{font-size:13px; font-weight:900; color:var(--accent2); margin:-4px 0 6px;}
+  .mapHint{font-size:12px !important;}
+  .mapRow{display:flex; gap:16px; justify-content:center; margin:6px 0;}
+  .mapRow.reverse{flex-direction:row-reverse;}
+  .mapNode{
+    width:64px; height:64px; border-radius:16px; border:3px solid #33334D;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:inherit; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.15); padding:0;
+  }
+  .mapNodeIcon{font-size:20px;}
+  .mapNodeLabel{font-size:10px; font-weight:900; color:#33334D; margin-top:2px;}
+  .mapNode.locked{opacity:.5; cursor:default;}
+  .mapNode.cleared{border-color:var(--ok); cursor:default;}
+  .mapNode.current{border-color:#FF7B54; box-shadow:0 0 0 4px rgba(255,123,84,.35), 0 3px 0 rgba(0,0,0,.15); animation:mapCurrentPulse 1.2s infinite;}
+  @keyframes mapCurrentPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
 </style>
 </head>
 <body>
@@ -174,6 +190,13 @@ document.addEventListener('touchend', function(e){
     <h2 id="clearTitle">STAGE CLEAR!</h2>
     <p id="clearDesc"></p>
     <button id="clearNextBtn">▶ つぎへ</button>
+  </div>
+
+  <div class="overlay" id="mapOv">
+    <h2>🗺 たんけん マップ</h2>
+    <p id="mapLap"></p>
+    <div id="mapTrack"></div>
+    <p class="mapHint">🚩の マスを タップして すすもう!</p>
   </div>
 
 </div>
@@ -457,7 +480,8 @@ function loadProgress(){
       if(p && typeof p.stageIdx === "number" && Array.isArray(p.quests)) return p;
     }
   }catch(e){}
-  return {tutorialDone:false, tutorialStep:0, stageIdx:0, quests:[], hasUsedRare:false};
+  return {tutorialDone:false, tutorialStep:0, stageIdx:0, quests:[], hasUsedRare:false,
+    clearedFlags:[false,false,false,false,false,false], lap:1};
 }
 function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
 
@@ -857,14 +881,14 @@ function finishStage(prog, lastQuest){
       ? `ぜんぶの ステージを ひとまわり できたよ!すごい! ${rating}`
       : `ステージ ${cfg.id} クリア! ${rating}`;
   }
-  $("clearNextBtn").textContent = "▶ つぎの クエストへ";
+  $("clearNextBtn").textContent = "▶ マップへ すすむ";
   $("clearNextBtn").onclick = ()=>{
     $("clearOv").classList.remove("show");
     try{
       if(wasTutorial){
-        runStage(prog);
+        showMap(prog);
       }else{
-        advanceStage(prog);
+        advanceStageAndShowMap(prog);
       }
     }catch(err){
       // ステージいこうで なにか こけても、うごけなく なったままには しない
@@ -873,11 +897,57 @@ function finishStage(prog, lastQuest){
   };
   $("clearOv").classList.add("show");
 }
-function advanceStage(prog){
+function advanceStageAndShowMap(prog){
+  prog.clearedFlags = prog.clearedFlags || [false,false,false,false,false,false];
+  prog.clearedFlags[prog.stageIdx] = true;
   prog.stageIdx = (prog.stageIdx+1) % STAGES.length;
+  if(prog.stageIdx === 0){
+    // ぜんぶ まわったので、あたらしい しゅうめへ(マスは また ロックから)
+    prog.clearedFlags = [false,false,false,false,false,false];
+    prog.lap = (prog.lap||1) + 1;
+  }
   prog.hasUsedRare = false;
   saveProgress(prog);
-  runStage(prog);
+  showMap(prog);
+}
+
+/* ====== すごろく マップ ====== */
+function showMap(prog){
+  G.gameActive = false;
+  renderMap(prog);
+  $("mapOv").classList.add("show");
+}
+function buildMapNode(cfg, i, prog){
+  const cleared = !!(prog.clearedFlags && prog.clearedFlags[i]);
+  const isCurrent = i === prog.stageIdx;
+  const node = document.createElement("button");
+  node.className = "mapNode"
+    + (cleared?" cleared":"")
+    + (isCurrent?" current":"")
+    + (!cleared && !isCurrent ? " locked":"");
+  const palette = BIOME_PALETTES[i] || BIOME_PALETTES[0];
+  node.style.background = palette.floorA;
+  const icon = cleared ? "✅" : (isCurrent ? "🚩" : "🔒");
+  node.innerHTML = `<span class="mapNodeIcon">${icon}</span><span class="mapNodeLabel">${cfg.id}</span>`;
+  if(isCurrent){
+    node.onclick = ()=>{ $("mapOv").classList.remove("show"); runStage(prog); };
+  }else{
+    node.disabled = true;
+  }
+  return node;
+}
+function renderMap(prog){
+  prog.clearedFlags = prog.clearedFlags || [false,false,false,false,false,false];
+  const track = $("mapTrack"); track.innerHTML = "";
+  const row1 = document.createElement("div"); row1.className = "mapRow";
+  const row2 = document.createElement("div"); row2.className = "mapRow reverse";
+  STAGES.forEach((cfg,i)=>{
+    const node = buildMapNode(cfg, i, prog);
+    (i<3 ? row1 : row2).appendChild(node);
+  });
+  track.appendChild(row1);
+  track.appendChild(row2);
+  $("mapLap").textContent = (prog.lap||1) > 1 ? `🔁 ${prog.lap}しゅうめ` : "";
 }
 
 /* ====== ステージの じゅんび ====== */
@@ -944,7 +1014,11 @@ $("startBtn").onclick=()=>{
   $("startOv").classList.remove("show");
   startBgm();
   const prog = loadProgress();
-  runStage(prog);
+  if(!prog.tutorialDone){
+    runStage(prog); // チュートリアルは そのまま フィールドへ
+  }else{
+    showMap(prog); // 2かいめ いこうは マップから
+  }
 };
 </script>
 </body>
