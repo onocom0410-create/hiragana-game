@@ -652,11 +652,11 @@ function collectItem(sp){
     sfxBeatRival();
     addXp(1);
     updateStarLabel();
-    speak("「" + item.char + "」だね!ライバルより はやかったよ!");
+    speak(item.char + "!ライバルより はやかったよ!");
     setToast(`「${item.char}」を ライバルより さきに ひろった! ⭐+1`, "good");
   }else{
     sfxPickup(item.rare);
-    speak("「" + item.char + "」だね!");
+    speak(item.char);
     setToast(`「${item.char}」を ひろった!`, "good");
   }
   const prog = loadProgress();
